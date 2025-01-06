@@ -1,0 +1,8 @@
+TODO List:
+
+1. Implement email verification system:
+   - Send verification email after signup
+   - Create verification token system
+   - Add email verification endpoint
+   - Add UI for email verification status
+   - Prevent unverified users from accessing certain features 
