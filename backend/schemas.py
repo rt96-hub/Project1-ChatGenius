@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional
+from pydantic import EmailStr
 
 class MessageBase(BaseModel):
     content: str
@@ -33,7 +34,7 @@ class Channel(ChannelBase):
         orm_mode = True
 
 class UserBase(BaseModel):
-    email: str
+    email: EmailStr
 
 class UserCreate(UserBase):
     password: str
@@ -47,4 +48,11 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
 
