@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { HashtagIcon, UserGroupIcon, PlusIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
 import CreateChannelModal from './CreateChannelModal';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useApi } from '@/hooks/useApi';
 
 interface Channel {
   id: number;
@@ -15,6 +15,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProps) {
+  const api = useApi();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
@@ -22,10 +23,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
 
   const fetchChannels = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8000/channels/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/channels/me');
       setChannels(response.data);
     } catch (error) {
       console.error('Failed to fetch channels:', error);

@@ -45,13 +45,16 @@ class Channel(ChannelBase):
         orm_mode = True
 
 class UserBase(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    picture: Optional[str] = None
 
 class UserCreate(UserBase):
-    password: str
+    auth0_id: str
 
 class User(UserBase):
     id: int
+    auth0_id: str
     is_active: bool
     created_at: datetime
     channels: List[Channel] = []

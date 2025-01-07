@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
-import axios from 'axios';
 import ChannelHeader from './ChannelHeader';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useApi } from '@/hooks/useApi';
 
 interface ChatAreaProps {
   channelId: number | null;
@@ -30,6 +30,7 @@ interface Channel {
 }
 
 export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }: ChatAreaProps) {
+  const api = useApi();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [channel, setChannel] = useState<Channel | null>(null);
@@ -122,16 +123,13 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const fetchMessages = async (skipCount: number, isInitial: boolean) => {
     if (!channelId) return null;
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:8000/channels/${channelId}/messages`, {
-        params: { skip: skipCount, limit: 50 },
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await api.get(`/channels/${channelId}/messages`, {
+        params: { skip: skipCount, limit: 50 }
       });
       
       if (isInitial) {
         setMessages(response.data.messages);
       } else {
-        // Add older messages to the beginning, ensuring no duplicates
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const newMessages = response.data.messages.filter(m => !existingIds.has(m.id));
@@ -147,13 +145,9 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   };
 
   useEffect(() => {
-    // Fetch current user info
     const fetchCurrentUser = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get('http://localhost:8000/users/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const response = await api.get('/users/me');
         setCurrentUserId(response.data.id);
       } catch (error) {
         console.error('Failed to fetch current user:', error);
@@ -165,10 +159,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const fetchChannelDetails = async () => {
     if (!channelId) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:8000/channels/${channelId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/channels/${channelId}`);
       setChannel(response.data);
     } catch (error) {
       console.error('Failed to fetch channel details:', error);
@@ -189,11 +180,9 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     } catch (error) {
       console.error('Failed to send message:', error);
       // Fallback to HTTP if WebSocket fails
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `http://localhost:8000/channels/${channelId}/messages`,
-        { content: newMessage },
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/channels/${channelId}/messages`,
+        { content: newMessage }
       );
       setNewMessage('');
       fetchMessages(0, true);

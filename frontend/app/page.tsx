@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 import ChatArea from '../components/ChatArea'
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 export default function Home() {
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
@@ -23,23 +24,25 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-full overflow-hidden">
-      <Header />
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-none w-64">
-          <Sidebar 
-            onChannelSelect={handleChannelSelect} 
-            refreshTrigger={refreshChannelList}
-          />
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <ChatArea 
-            channelId={selectedChannelId} 
-            onChannelUpdate={handleChannelUpdate}
-            onChannelDelete={handleChannelDelete}
-          />
+    <ProtectedRoute>
+      <div className="flex flex-col h-screen w-full overflow-hidden">
+        <Header />
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex-none w-64">
+            <Sidebar 
+              onChannelSelect={handleChannelSelect} 
+              refreshTrigger={refreshChannelList}
+            />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <ChatArea 
+              channelId={selectedChannelId} 
+              onChannelUpdate={handleChannelUpdate}
+              onChannelDelete={handleChannelDelete}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 } 

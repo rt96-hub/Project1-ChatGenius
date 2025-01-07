@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { useApi } from '@/hooks/useApi';
 
 interface CreateChannelModalProps {
     isOpen: boolean;
@@ -7,74 +7,84 @@ interface CreateChannelModalProps {
     onChannelCreated: () => void;
 }
 
-const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose, onChannelCreated }) => {
-    const [channelName, setChannelName] = useState('');
+export default function CreateChannelModal({ isOpen, onClose, onChannelCreated }: CreateChannelModalProps) {
+    const api = useApi();
+    const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [error, setError] = useState('');
 
-    if (!isOpen) return null;
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
+
         try {
-            const token = localStorage.getItem('token');
-            await axios.post('http://localhost:8000/channels/', 
-                { 
-                    name: channelName,
-                    description: description.trim() || null
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setChannelName('');
+            await api.post('/channels/', {
+                name,
+                description: description || null
+            });
+            
+            setName('');
             setDescription('');
-            setError('');
             onChannelCreated();
             onClose();
-        } catch (err) {
+        } catch (error) {
             setError('Failed to create channel');
+            console.error('Failed to create channel:', error);
         }
     };
 
+    if (!isOpen) return null;
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
                 <h2 className="text-xl font-bold mb-4">Create New Channel</h2>
-                <form onSubmit={handleSubmit}>
-                    <input
-                        type="text"
-                        value={channelName}
-                        onChange={(e) => setChannelName(e.target.value)}
-                        placeholder="Channel name"
-                        className="w-full p-2 border rounded mb-4 text-gray-900"
-                        required
-                    />
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Channel description (optional)"
-                        className="w-full p-2 border rounded mb-4 text-gray-900"
-                        rows={3}
-                    />
-                    {error && <p className="text-red-500 mb-4">{error}</p>}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            Channel Name
+                        </label>
+                        <input
+                            type="text"
+                            id="name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                            Description (optional)
+                        </label>
+                        <textarea
+                            id="description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            rows={3}
+                        />
+                    </div>
+                    {error && (
+                        <p className="text-red-500 text-sm">{error}</p>
+                    )}
                     <div className="flex justify-end gap-2">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 rounded-md"
                         >
-                            Create
+                            Create Channel
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     );
-};
-
-export default CreateChannelModal; 
+} 
