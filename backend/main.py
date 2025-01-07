@@ -1,27 +1,31 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import timedelta
 import models, schemas, crud
 from database import SessionLocal, engine
-from security import create_access_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+from auth0 import get_current_user, verify_token
 import asyncio
 import os
 from dotenv import load_dotenv
+import logging
+
+# Configure logging for errors only
+logging.basicConfig(level=logging.ERROR)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 MAX_CONNECTIONS_PER_USER = int(os.getenv('MAX_WEBSOCKET_CONNECTIONS_PER_USER', '5'))
 MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000'))
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
 
 app = FastAPI()
 
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","http://localhost:3001"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -42,25 +46,21 @@ def get_db():
 
 class ConnectionManager:
     def __init__(self):
-        # Store multiple connections per user and their channel memberships
-        self.user_connections: dict[int, list[WebSocket]] = {}  # user_id -> list of websockets
-        self.user_channels: dict[int, set[int]] = {}  # user_id -> set of channel_ids
+        self.user_connections: dict[int, list[WebSocket]] = {}
+        self.user_channels: dict[int, set[int]] = {}
         self.total_connections = 0
 
     async def connect(self, websocket: WebSocket, user_id: int, channels: list[int]):
-        # Check total connection limit
         if self.total_connections >= MAX_TOTAL_CONNECTIONS:
             await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
             return False
 
-        # Check user connection limit
         if user_id in self.user_connections and len(self.user_connections[user_id]) >= MAX_CONNECTIONS_PER_USER:
             await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
             return False
 
         await websocket.accept()
         
-        # Initialize user connections if not exists
         if user_id not in self.user_connections:
             self.user_connections[user_id] = []
         
@@ -75,13 +75,15 @@ class ConnectionManager:
                 self.user_connections[user_id].remove(websocket)
                 self.total_connections -= 1
                 
-                # Clean up user entry if no more connections
                 if not self.user_connections[user_id]:
                     del self.user_connections[user_id]
                     del self.user_channels[user_id]
 
+    def add_channel_for_user(self, user_id: int, channel_id: int):
+        if user_id in self.user_channels:
+            self.user_channels[user_id].add(channel_id)
+
     async def broadcast_to_channel(self, message: dict, channel_id: int):
-        # Find all users who are members of this channel and send them the message
         disconnected_websockets = []
         for user_id, channels in self.user_channels.items():
             if channel_id in channels:
@@ -90,43 +92,99 @@ class ConnectionManager:
                         try:
                             await websocket.send_json(message)
                         except RuntimeError:
-                            # Connection is closed or invalid
                             disconnected_websockets.append((websocket, user_id))
         
-        # Clean up any disconnected websockets
         for websocket, user_id in disconnected_websockets:
             self.disconnect(websocket, user_id)
 
 manager = ConnectionManager()
 
-@app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+# Auth endpoints
+@app.post("/auth/sync", response_model=schemas.User)
+async def sync_auth0_user_endpoint(
+    request: Request,
+    user_data: schemas.UserCreate,
     db: Session = Depends(get_db)
 ):
-    user = crud.authenticate_user(db, form_data.username, form_data.password)
-    if not user:
+    """Sync Auth0 user data with local database"""
+    try:
+        # Verify the token first
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing authorization header"
+            )
+        if not auth_header.startswith('Bearer '):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization header format. Must start with 'Bearer '"
+            )
+        
+        token = auth_header.split(' ')[1]
+        payload = await verify_token(token)
+        
+        # Ensure the Auth0 ID matches
+        if payload['sub'] != user_data.auth0_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Token subject does not match provided Auth0 ID"
+            )
+        
+        return crud.sync_auth0_user(db, user_data)
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error syncing user: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error syncing user: {str(e)}"
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
 
-@app.post("/register", response_model=schemas.User)
-async def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    return crud.create_user(db=db, user=user)
-
-@app.get("/users/me", response_model=schemas.User)
-async def read_users_me(current_user: models.User = Depends(get_current_user)):
-    return current_user
+@app.get("/auth/verify", response_model=dict)
+async def verify_auth(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Verify Auth0 token and return user data"""
+    try:
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing authorization header"
+            )
+        if not auth_header.startswith('Bearer '):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authorization header format. Must start with 'Bearer '"
+            )
+        
+        token = auth_header.split(' ')[1]
+        payload = await verify_token(token)
+        
+        # Get user from database
+        user = crud.get_user_by_auth0_id(db, payload['sub'])
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return {
+            "valid": True,
+            "user": user
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error verifying user: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error verifying user: {str(e)}"
+        )
 
 @app.websocket("/ws")
 async def websocket_endpoint(
@@ -136,8 +194,13 @@ async def websocket_endpoint(
 ):
     user_id = None
     try:
-        # Verify token
-        user = await get_current_user(token, db)
+        # Verify token and get user
+        payload = await verify_token(token)
+        user = crud.get_user_by_auth0_id(db, payload["sub"])
+        if not user:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        
         user_id = user.id
         
         # Get all channels the user is a member of
@@ -146,7 +209,7 @@ async def websocket_endpoint(
         
         # Attempt to connect
         if not await manager.connect(websocket, user.id, channel_ids):
-            return  # Connection was rejected due to limits
+            return
         
         try:
             while True:
@@ -181,7 +244,8 @@ async def websocket_endpoint(
                         "channel_id": message.channel_id,
                         "user": {
                             "id": user.id,
-                            "email": user.email
+                            "email": user.email,
+                            "name": user.name
                         }
                     }
                 }
@@ -189,13 +253,27 @@ async def websocket_endpoint(
         except WebSocketDisconnect:
             if user_id is not None:
                 manager.disconnect(websocket, user_id)
-    except HTTPException:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
     except Exception as e:
-        print(f"WebSocket error: {str(e)}")
+        logger.error(f"WebSocket error: {str(e)}")
         if user_id is not None:
             manager.disconnect(websocket, user_id)
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+
+# User endpoints
+@app.get("/users/me", response_model=schemas.User)
+async def read_users_me(
+    request: Request,
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get the current authenticated user's information"""
+    try:
+        return current_user
+    except Exception as e:
+        logger.error(f"Error getting current user: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting current user: {str(e)}"
+        )
 
 @app.get("/users/", response_model=List[schemas.User])
 def read_users(
@@ -204,8 +282,7 @@ def read_users(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    users = crud.get_users(db, skip=skip, limit=limit)
-    return users
+    return crud.get_users(db, skip=skip, limit=limit)
 
 @app.get("/users/{user_id}", response_model=schemas.User)
 def read_user(
@@ -220,12 +297,17 @@ def read_user(
 
 # Channel endpoints
 @app.post("/channels/", response_model=schemas.Channel)
-def create_channel_endpoint(
+async def create_channel_endpoint(
     channel: schemas.ChannelCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    return crud.create_channel(db=db, channel=channel, creator_id=current_user.id)
+    db_channel = crud.create_channel(db=db, channel=channel, creator_id=current_user.id)
+    
+    # Add the new channel to the user's WebSocket connection
+    manager.add_channel_for_user(current_user.id, db_channel.id)
+    
+    return db_channel
 
 @app.get("/channels/me", response_model=List[schemas.Channel])
 def read_user_channels(
@@ -246,7 +328,6 @@ def read_channel(
     db_channel = crud.get_channel(db, channel_id=channel_id)
     if db_channel is None:
         raise HTTPException(status_code=404, detail="Channel not found")
-    # Check if user is member of channel
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     return db_channel
@@ -268,7 +349,6 @@ async def update_channel_endpoint(
     
     updated_channel = crud.update_channel(db=db, channel_id=channel_id, channel_update=channel_update)
     
-    # Broadcast channel update to all connected clients in this channel
     channel_update_data = {
         "type": "channel_update",
         "channel_id": channel_id,
@@ -292,12 +372,10 @@ def delete_channel_endpoint(
     db_channel = crud.get_channel(db, channel_id=channel_id)
     if db_channel is None:
         raise HTTPException(status_code=404, detail="Channel not found")
-    # Check if user is the owner
     if db_channel.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the channel owner can delete the channel")
     return crud.delete_channel(db=db, channel_id=channel_id)
 
-# Message endpoints
 @app.post("/channels/{channel_id}/messages", response_model=schemas.Message)
 def create_message_endpoint(
     channel_id: int,
@@ -305,7 +383,6 @@ def create_message_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Check if user is member of channel
     db_channel = crud.get_channel(db, channel_id=channel_id)
     if db_channel is None:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -327,7 +404,6 @@ def read_channel_messages(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Check if user is member of channel
     db_channel = crud.get_channel(db, channel_id=channel_id)
     if db_channel is None:
         raise HTTPException(status_code=404, detail="Channel not found")

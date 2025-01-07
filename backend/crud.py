@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 import models, schemas
-from security import get_password_hash, verify_password
 from sqlalchemy.orm import joinedload
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -9,24 +11,40 @@ def get_user(db: Session, user_id: int):
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
+def get_user_by_auth0_id(db: Session, auth0_id: str):
+    return db.query(models.User).filter(models.User.auth0_id == auth0_id).first()
+
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
-def create_user(db: Session, user: schemas.UserCreate):
-    hashed_password = get_password_hash(user.password)
-    db_user = models.User(email=user.email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-def authenticate_user(db: Session, email: str, password: str):
-    user = get_user_by_email(db, email)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
+def sync_auth0_user(db: Session, user_data: schemas.UserCreate):
+    try:
+        # Check if user exists
+        db_user = get_user_by_auth0_id(db, user_data.auth0_id)
+        
+        if db_user:
+            # Update existing user
+            db_user.email = user_data.email
+            db_user.name = user_data.name
+            db_user.picture = user_data.picture
+            db.commit()
+            db.refresh(db_user)
+            return db_user
+        
+        # Create new user
+        db_user = models.User(
+            auth0_id=user_data.auth0_id,
+            email=user_data.email,
+            name=user_data.name,
+            picture=user_data.picture
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        logger.error(f"Error in sync_auth0_user: {str(e)}", exc_info=True)
+        raise
 
 # Channel operations
 def create_channel(db: Session, channel: schemas.ChannelCreate, creator_id: int):
@@ -79,7 +97,6 @@ def delete_channel(db: Session, channel_id: int):
         db.commit()
     return db_channel
 
-# Message operations
 def create_message(db: Session, channel_id: int, user_id: int, message: schemas.MessageCreate):
     db_message = models.Message(
         content=message.content,
@@ -92,28 +109,23 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
     return db_message
 
 def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50):
-    # First get total count
-    total_count = db.query(models.Message)\
-        .filter(models.Message.channel_id == channel_id)\
-        .count()
-
-    # Get messages ordered by created_at descending (newest first)
-    messages = db.query(models.Message)\
-        .filter(models.Message.channel_id == channel_id)\
-        .options(joinedload(models.Message.user))\
-        .order_by(models.Message.created_at.desc())\
-        .offset(skip)\
-        .limit(limit)\
-        .all()
+    messages = (db.query(models.Message)
+               .filter(models.Message.channel_id == channel_id)
+               .order_by(models.Message.created_at.desc())
+               .offset(skip)
+               .limit(limit + 1)  # Get one extra to check if there are more
+               .all())
     
-    # Reverse the messages so oldest appears first in the list
-    messages.reverse()
+    has_more = len(messages) > limit
+    messages = messages[:limit]  # Trim to requested limit
     
-    return {
-        "messages": messages,
-        "total": total_count,
-        "has_more": (skip + limit) < total_count
-    }
+    total = db.query(models.Message).filter(models.Message.channel_id == channel_id).count()
+    
+    return schemas.MessageList(
+        messages=messages,
+        total=total,
+        has_more=has_more
+    )
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

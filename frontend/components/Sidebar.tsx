@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { HashtagIcon, UserGroupIcon, PlusIcon } from '@heroicons/react/24/outline';
-import axios from 'axios';
+import { HashtagIcon, PlusIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { useApi } from '@/hooks/useApi';
 import CreateChannelModal from './CreateChannelModal';
-import { useConnection } from '../contexts/ConnectionContext';
+import { useConnection } from '@/contexts/ConnectionContext';
 
 interface Channel {
   id: number;
   name: string;
+  description: string | null;
+  owner_id: number;
 }
 
 interface SidebarProps {
@@ -15,6 +17,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProps) {
+  const api = useApi();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
@@ -22,10 +25,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
 
   const fetchChannels = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8000/channels/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/channels/me');
       setChannels(response.data);
     } catch (error) {
       console.error('Failed to fetch channels:', error);
@@ -56,6 +56,11 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
   const handleChannelSelect = (channelId: number) => {
     setSelectedChannelId(channelId);
     onChannelSelect(channelId);
+  };
+
+  const handleChannelCreated = async (channelId: number) => {
+    await fetchChannels();
+    handleChannelSelect(channelId);
   };
 
   return (
@@ -92,7 +97,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
             ))}
           </ul>
         </div>
-        
+
         <div className="px-4">
           <h3 className="text-gray-400 text-sm font-medium mb-2 uppercase tracking-wide">Direct Messages</h3>
           <ul className="space-y-1">
@@ -111,7 +116,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
       <CreateChannelModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onChannelCreated={fetchChannels}
+        onChannelCreated={handleChannelCreated}
       />
     </aside>
   );

@@ -7,10 +7,12 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    auth0_id = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    name = Column(String, nullable=True)
+    picture = Column(String, nullable=True)
 
     messages = relationship("Message", back_populates="user")
     channels = relationship("Channel", secondary="user_channels", back_populates="users")

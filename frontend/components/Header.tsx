@@ -1,12 +1,12 @@
 'use client'
 
 import { Bars3Icon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useConnection } from '@/contexts/ConnectionContext'
 import ProfileStatus from './ProfileStatus'
 
 export default function Header() {
-  const { user, logout } = useAuth()
+  const { user, signOut } = useAuth()
   const { connectionStatus } = useConnection()
 
   return (
@@ -30,11 +30,11 @@ export default function Header() {
         {user && (
           <div className="flex items-center gap-4">
             <ProfileStatus 
-              email={user.email} 
+              email={user.email || ''} 
               connectionStatus={connectionStatus}
             />
             <button
-              onClick={logout}
+              onClick={() => signOut()}
               className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
             >
               Sign out
