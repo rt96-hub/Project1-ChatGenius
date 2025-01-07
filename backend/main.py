@@ -79,6 +79,10 @@ class ConnectionManager:
                     del self.user_connections[user_id]
                     del self.user_channels[user_id]
 
+    def add_channel_for_user(self, user_id: int, channel_id: int):
+        if user_id in self.user_channels:
+            self.user_channels[user_id].add(channel_id)
+
     async def broadcast_to_channel(self, message: dict, channel_id: int):
         disconnected_websockets = []
         for user_id, channels in self.user_channels.items():
@@ -293,12 +297,17 @@ def read_user(
 
 # Channel endpoints
 @app.post("/channels/", response_model=schemas.Channel)
-def create_channel_endpoint(
+async def create_channel_endpoint(
     channel: schemas.ChannelCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    return crud.create_channel(db=db, channel=channel, creator_id=current_user.id)
+    db_channel = crud.create_channel(db=db, channel=channel, creator_id=current_user.id)
+    
+    # Add the new channel to the user's WebSocket connection
+    manager.add_channel_for_user(current_user.id, db_channel.id)
+    
+    return db_channel
 
 @app.get("/channels/me", response_model=List[schemas.Channel])
 def read_user_channels(

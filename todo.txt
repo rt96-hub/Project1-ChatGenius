@@ -47,4 +47,5 @@ TODO List:
 11. Make the text input field dynamic, so it grows based on the number of lines of text in the input field. and the text input field should be scrollable and wrap text.
 12. add ctrl c and v to the text input field
 13. delete messages
-14. auto open a channel when it is created
+14. message notification when a message is recieved on a channel you are in, and the channel is not open
+15. add a "leave channel" button to the channel page
