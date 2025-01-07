@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 
 type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'idle' | 'away';
 
@@ -25,6 +26,7 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
   const messageListeners = useRef<((message: WebSocketMessage) => void)[]>([]);
   const lastActivityRef = useRef<number>(Date.now());
   const idleCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   const updateLastActivity = () => {
     lastActivityRef.current = Date.now();
@@ -61,78 +63,96 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
     };
   }, [connectionStatus]);
 
-  const setupWebSocket = () => {
+  const setupWebSocket = async () => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token available, skipping WebSocket connection');
+    if (!isAuthenticated) {
+      console.log('Not authenticated, skipping WebSocket connection');
       setConnectionStatus('disconnected');
       return;
     }
 
-    setConnectionStatus('connecting');
-    const ws = new WebSocket(`ws://localhost:8000/ws?token=${token}`);
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      // Notify all listeners of the message
-      messageListeners.current.forEach(listener => listener(data));
-    };
+    try {
+      setConnectionStatus('connecting');
+      const token = await getAccessTokenSilently();
+      console.log('Setting up WebSocket with token');
+      
+      const ws = new WebSocket(`ws://localhost:8000/ws?token=${encodeURIComponent(token)}`);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        // Notify all listeners of the message
+        messageListeners.current.forEach(listener => listener(data));
+      };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setConnectionStatus('disconnected');
+      };
+
+      ws.onclose = (event) => {
+        console.log(`WebSocket closed with code ${event.code}`);
+        websocketRef.current = null;
+        setConnectionStatus('disconnected');
+
+        // Only attempt to reconnect if authenticated and it wasn't a normal closure
+        if (isAuthenticated && event.code !== 1000) {
+          // Implement exponential backoff for reconnection
+          const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+          reconnectAttempts.current++;
+          
+          console.log(`Attempting to reconnect in ${backoffDelay}ms...`);
+          setTimeout(() => {
+            if (isAuthenticated) {
+              setupWebSocket();
+            }
+          }, backoffDelay);
+        }
+      };
+
+      ws.onopen = () => {
+        console.log('WebSocket connection established');
+        reconnectAttempts.current = 0;
+        setConnectionStatus('connected');
+      };
+
+      websocketRef.current = ws;
+    } catch (error) {
+      console.error('Error setting up WebSocket:', error);
       setConnectionStatus('disconnected');
-    };
-
-    ws.onclose = (event) => {
-      console.log(`WebSocket closed with code ${event.code}`);
-      websocketRef.current = null;
-      setConnectionStatus('disconnected');
-
-      // Only attempt to reconnect if we have a valid token and it wasn't a normal closure
-      if (localStorage.getItem('token') && event.code !== 1000) {
-        // Implement exponential backoff for reconnection
-        const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-        reconnectAttempts.current++;
-        
-        console.log(`Attempting to reconnect in ${backoffDelay}ms...`);
-        setTimeout(() => {
-          if (localStorage.getItem('token')) {
-            setupWebSocket();
-          }
-        }, backoffDelay);
-      }
-    };
-
-    ws.onopen = () => {
-      console.log('WebSocket connection established');
-      reconnectAttempts.current = 0;
-      setConnectionStatus('connected');
-    };
-
-    websocketRef.current = ws;
+    }
   };
 
+  // Setup WebSocket when authenticated
   useEffect(() => {
-    setupWebSocket();
+    if (isAuthenticated) {
+      setupWebSocket();
+    } else {
+      // Close existing connection if user becomes unauthenticated
+      if (websocketRef.current) {
+        websocketRef.current.close(1000);
+        websocketRef.current = null;
+      }
+      setConnectionStatus('disconnected');
+    }
+    
     return () => {
       if (websocketRef.current) {
         websocketRef.current.close(1000);
         websocketRef.current = null;
       }
     };
-  }, []);
+  }, [isAuthenticated]);
 
-  const sendMessage = (message: any) => {
+  const sendMessage = async (message: any) => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
       websocketRef.current.send(JSON.stringify(message));
     } else {
       console.error('WebSocket is not connected');
       // Attempt to reconnect
-      setupWebSocket();
+      await setupWebSocket();
     }
   };
 

@@ -1,7 +1,6 @@
 'use client';
 
 import axios from 'axios';
-import { useAuth0 } from '@auth0/auth0-react';
 
 // Create an axios instance
 const api = axios.create({
@@ -9,22 +8,9 @@ const api = axios.create({
 });
 
 // Create a function to get the API instance with auth configuration
-export function createAuthenticatedApi() {
-  const { getAccessTokenSilently } = useAuth0();
-
-  // Add a request interceptor to automatically add the token
-  api.interceptors.request.use(async (config) => {
-    try {
-      const token = await getAccessTokenSilently();
-      config.headers.Authorization = `Bearer ${token}`;
-    } catch (error) {
-      console.error('Error getting access token:', error);
-    }
-    return config;
-  }, (error) => {
-    return Promise.reject(error);
-  });
-
+export function createAuthenticatedApi(token: string) {
+  // Add the authorization header
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   return api;
 }
 

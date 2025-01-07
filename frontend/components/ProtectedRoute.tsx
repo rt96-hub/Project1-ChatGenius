@@ -3,7 +3,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/utils/api';
+import { createAuthenticatedApi } from '@/utils/api';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -22,6 +22,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         try {
           const token = await getAccessTokenSilently();
           console.log('Protected route token:', token);
+          const api = createAuthenticatedApi(token);
           // Verify token with backend
           await api.get('/auth/verify');
           setIsVerifying(false);

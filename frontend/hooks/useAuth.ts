@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect } from 'react';
-import api from '@/utils/api';
+import { createAuthenticatedApi } from '@/utils/api';
 
 export function useAuth() {
   const {
@@ -20,8 +20,7 @@ export function useAuth() {
         try {
           const token = await getAccessTokenSilently();
           console.log('Syncing user with token:', token);
-          console.log('User data:', user);
-          // Sync user with backend
+          const api = createAuthenticatedApi(token);
           await api.post('/auth/sync', {
             email: user.email,
             auth0_id: user.sub,
