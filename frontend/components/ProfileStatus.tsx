@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-export type ConnectionStatus = 'connected' | 'idle' | 'away' | 'disconnected';
+export type ConnectionStatus = 'connected' | 'idle' | 'away' | 'disconnected' | 'connecting';
 
 interface ProfileStatusProps {
   email: string;
@@ -18,9 +18,27 @@ const getStatusColor = (status: ConnectionStatus): string => {
     case 'away':
       return 'bg-red-500';
     case 'disconnected':
+    case 'connecting':
       return 'bg-gray-400';
     default:
       return 'bg-gray-400';
+  }
+};
+
+const getStatusTitle = (status: ConnectionStatus): string => {
+  switch (status) {
+    case 'connected':
+      return 'Active';
+    case 'idle':
+      return 'Idle';
+    case 'away':
+      return 'Away';
+    case 'disconnected':
+      return 'Offline';
+    case 'connecting':
+      return 'Connecting...';
+    default:
+      return 'Unknown';
   }
 };
 
@@ -29,7 +47,7 @@ export default function ProfileStatus({ email, connectionStatus }: ProfileStatus
   const initial = email ? email[0].toUpperCase() : '?';
 
   return (
-    <div className="relative inline-block">
+    <button className="relative inline-block cursor-pointer hover:opacity-90 transition-opacity">
       {/* Profile Circle */}
       <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
         {initial}
@@ -38,8 +56,8 @@ export default function ProfileStatus({ email, connectionStatus }: ProfileStatus
       {/* Status Indicator */}
       <div 
         className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(connectionStatus)} shadow-sm`}
-        title={`Status: ${connectionStatus}`}
+        title={`Status: ${getStatusTitle(connectionStatus)}`}
       />
-    </div>
+    </button>
   );
 } 

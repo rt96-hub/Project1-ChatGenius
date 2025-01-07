@@ -59,6 +59,7 @@ export default function SignupForm() {
 
       const loginData = await loginResponse.json()
       localStorage.setItem('token', loginData.access_token)
+      localStorage.setItem('userEmail', email)
       router.push('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create account')

@@ -27,23 +27,20 @@ export default function Header() {
             className="w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <div className="flex items-center gap-4">
-          {user && (
-            <div className="flex items-center gap-2">
-              <ProfileStatus 
-                email={user.email} 
-                connectionStatus={connectionStatus}
-              />
-              <span className="text-sm text-gray-600">{user.email}</span>
-            </div>
-          )}
-          <button
-            onClick={logout}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
-          >
-            Sign out
-          </button>
-        </div>
+        {user && (
+          <div className="flex items-center gap-4">
+            <ProfileStatus 
+              email={user.email} 
+              connectionStatus={connectionStatus}
+            />
+            <button
+              onClick={logout}
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   )

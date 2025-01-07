@@ -34,6 +34,7 @@ export default function LoginForm() {
 
       const data = await response.json()
       localStorage.setItem('token', data.access_token)
+      localStorage.setItem('userEmail', email)
       router.push('/')
     } catch (err) {
       setError('Invalid email or password')

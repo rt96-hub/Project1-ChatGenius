@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
-type ConnectionStatus = 'connected' | 'disconnected' | 'connecting';
+type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'idle' | 'away';
 
 interface WebSocketMessage {
   type: string;
@@ -23,6 +23,43 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
   const websocketRef = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
   const messageListeners = useRef<((message: WebSocketMessage) => void)[]>([]);
+  const lastActivityRef = useRef<number>(Date.now());
+  const idleCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updateLastActivity = () => {
+    lastActivityRef.current = Date.now();
+    if (websocketRef.current?.readyState === WebSocket.OPEN) {
+      setConnectionStatus('connected');
+    }
+  };
+
+  // Setup idle detection
+  useEffect(() => {
+    const events = ['mousedown', 'keydown', 'touchstart', 'mousemove'];
+    
+    events.forEach(event => {
+      window.addEventListener(event, updateLastActivity);
+    });
+
+    // Check for idle status every second
+    idleCheckIntervalRef.current = setInterval(() => {
+      const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+      if (websocketRef.current?.readyState === WebSocket.OPEN) {
+        if (timeSinceLastActivity > 30000 && connectionStatus === 'connected') { // 30 seconds
+          setConnectionStatus('idle');
+        }
+      }
+    }, 1000);
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, updateLastActivity);
+      });
+      if (idleCheckIntervalRef.current) {
+        clearInterval(idleCheckIntervalRef.current);
+      }
+    };
+  }, [connectionStatus]);
 
   const setupWebSocket = () => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
