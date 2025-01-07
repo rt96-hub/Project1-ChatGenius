@@ -120,7 +120,109 @@ def read_user(
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
-# TODO: Add more endpoints for channels, messages, etc.
+# Channel endpoints
+@app.post("/channels/", response_model=schemas.Channel)
+def create_channel_endpoint(
+    channel: schemas.ChannelCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    return crud.create_channel(db=db, channel=channel, creator_id=current_user.id)
+
+@app.get("/channels/me", response_model=List[schemas.Channel])
+def read_user_channels(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    channels = crud.get_user_channels(db, user_id=current_user.id, skip=skip, limit=limit)
+    return channels
+
+@app.get("/channels/{channel_id}", response_model=schemas.Channel)
+def read_channel(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    # Check if user is member of channel
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    return db_channel
+
+@app.put("/channels/{channel_id}", response_model=schemas.Channel)
+def update_channel_endpoint(
+    channel_id: int,
+    channel_update: schemas.ChannelCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    # Check if user is member of channel
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    # Check if user is the owner
+    if db_channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the channel owner can update the channel")
+    return crud.update_channel(db=db, channel_id=channel_id, channel_update=channel_update)
+
+@app.delete("/channels/{channel_id}", response_model=schemas.Channel)
+def delete_channel_endpoint(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    # Check if user is the owner
+    if db_channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the channel owner can delete the channel")
+    return crud.delete_channel(db=db, channel_id=channel_id)
+
+# Message endpoints
+@app.post("/channels/{channel_id}/messages", response_model=schemas.Message)
+def create_message_endpoint(
+    channel_id: int,
+    message: schemas.MessageCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Check if user is member of channel
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    return crud.create_message(
+        db=db,
+        channel_id=channel_id,
+        user_id=current_user.id,
+        message=message
+    )
+
+@app.get("/channels/{channel_id}/messages", response_model=schemas.MessageList)
+def read_channel_messages(
+    channel_id: int,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Check if user is member of channel
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    return crud.get_channel_messages(db, channel_id=channel_id, skip=skip, limit=limit)
 
 if __name__ == "__main__":
     import uvicorn

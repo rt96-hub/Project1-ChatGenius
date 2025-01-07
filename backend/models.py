@@ -20,10 +20,13 @@ class Channel(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+    description = Column(String, nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     messages = relationship("Message", back_populates="channel")
     users = relationship("User", secondary="user_channels", back_populates="channels")
+    owner = relationship("User", foreign_keys=[owner_id])
 
 class Message(Base):
     __tablename__ = "messages"

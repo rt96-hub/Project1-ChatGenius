@@ -6,3 +6,45 @@ TODO List:
    - Add email verification endpoint
    - Add UI for email verification status
    - Prevent unverified users from accessing certain features 
+
+2. Implement password reset system:
+   - Add password reset endpoint
+   - Add UI for password reset status
+   - Prevent unverified users from accessing certain features 
+
+3. Design tests for the authentication system
+   - Add tests for the authentication system
+   - Add tests for the password reset system
+   - Add tests for the email verification system
+
+4. System messages
+   - Add system messages to the chat (user joined a channel, user left a channel, user was added to a channel, user was removed from a channel)
+
+5. AI summarizes channel conversations
+   - Add AI to summarize channel conversations, "summary of last x days"
+
+6. channel permissions and roles
+   - add users to channels
+   - Add channel permissions and roles
+   - Add UI for channel permissions and roles
+
+7. edit messages, delete messages, show timestamp of sent, or edited messages
+   - Add edit message endpoint
+   - Add delete message endpoint
+   - Add timestamp of sent, or edited messages
+   - Add updated_at field to message model
+
+8. add user profile
+   - Add user profile page
+   - name, avatar, bio, email, mutual channels
+
+9. discover other users
+   - Search for users by name, email, or mutual channels
+   - Send dms, add to channels
+   - click a users message to view their profile
+
+10. Implement a loading indicator for message pagination in the chat area.
+11. Make the text input field dynamic, so it grows based on the number of lines of text in the input field. and the text input field should be scrollable and wrap text.
+12. add ctrl c and v to the text input field
+13. delete messages
+14. auto open a channel when it is created

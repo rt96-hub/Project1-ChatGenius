@@ -9,17 +9,27 @@ class MessageBase(BaseModel):
 class MessageCreate(MessageBase):
     pass
 
+# Add UserBase schema for channel users
+class UserInChannel(BaseModel):
+    id: int
+    email: str
+
+    class Config:
+        orm_mode = True
+
 class Message(MessageBase):
     id: int
     created_at: datetime
     user_id: int
     channel_id: int
+    user: UserInChannel
 
     class Config:
         orm_mode = True
 
 class ChannelBase(BaseModel):
     name: str
+    description: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass
@@ -27,7 +37,8 @@ class ChannelCreate(ChannelBase):
 class Channel(ChannelBase):
     id: int
     created_at: datetime
-    users: List[int] = []
+    owner_id: int
+    users: List[UserInChannel] = []
     messages: List[Message] = []
 
     class Config:
@@ -55,4 +66,12 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class MessageList(BaseModel):
+    messages: List[Message]
+    total: int
+    has_more: bool
+
+    class Config:
+        orm_mode = True
 
