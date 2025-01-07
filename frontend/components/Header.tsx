@@ -2,9 +2,12 @@
 
 import { Bars3Icon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '@/contexts/AuthContext'
+import { useConnection } from '@/contexts/ConnectionContext'
+import ProfileStatus from './ProfileStatus'
 
 export default function Header() {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
+  const { connectionStatus } = useConnection()
 
   return (
     <header className="h-14 min-h-[3.5rem] border-b border-gray-200 bg-white flex items-center px-4 justify-between shadow-sm">
@@ -24,12 +27,23 @@ export default function Header() {
             className="w-64 pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>
-        <button
-          onClick={logout}
-          className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-4">
+          {user && (
+            <div className="flex items-center gap-2">
+              <ProfileStatus 
+                email={user.email} 
+                connectionStatus={connectionStatus}
+              />
+              <span className="text-sm text-gray-600">{user.email}</span>
+            </div>
+          )}
+          <button
+            onClick={logout}
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
   )

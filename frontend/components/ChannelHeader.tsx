@@ -46,6 +46,20 @@ export default function ChannelHeader({ channel, currentUserId, onChannelUpdate,
         }
     };
 
+    const handleCancel = () => {
+        setName(channel.name);
+        setDescription(channel.description || '');
+        setError('');
+        setIsEditing(false);
+    };
+
+    const handleStartEditing = () => {
+        setName(channel.name);
+        setDescription(channel.description || '');
+        setError('');
+        setIsEditing(true);
+    };
+
     const handleDelete = async () => {
         try {
             const token = localStorage.getItem('token');
@@ -113,7 +127,7 @@ export default function ChannelHeader({ channel, currentUserId, onChannelUpdate,
                     <div className="flex justify-end gap-2">
                         <button
                             type="button"
-                            onClick={() => setIsEditing(false)}
+                            onClick={handleCancel}
                             className="px-4 py-2 text-gray-600 hover:text-gray-800"
                         >
                             Cancel
@@ -142,7 +156,7 @@ export default function ChannelHeader({ channel, currentUserId, onChannelUpdate,
                 {isOwner && (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => setIsEditing(true)}
+                            onClick={handleStartEditing}
                             className="text-gray-400 hover:text-gray-600"
                             title="Edit channel"
                         >

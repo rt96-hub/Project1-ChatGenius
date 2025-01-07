@@ -7,13 +7,21 @@ from datetime import timedelta
 import models, schemas, crud
 from database import SessionLocal, engine
 from security import create_access_token, get_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
+import asyncio
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+MAX_CONNECTIONS_PER_USER = int(os.getenv('MAX_WEBSOCKET_CONNECTIONS_PER_USER', '5'))
+MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000'))
 
 app = FastAPI()
 
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000","http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -34,18 +42,60 @@ def get_db():
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        # Store multiple connections per user and their channel memberships
+        self.user_connections: dict[int, list[WebSocket]] = {}  # user_id -> list of websockets
+        self.user_channels: dict[int, set[int]] = {}  # user_id -> set of channel_ids
+        self.total_connections = 0
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, user_id: int, channels: list[int]):
+        # Check total connection limit
+        if self.total_connections >= MAX_TOTAL_CONNECTIONS:
+            await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
+            return False
+
+        # Check user connection limit
+        if user_id in self.user_connections and len(self.user_connections[user_id]) >= MAX_CONNECTIONS_PER_USER:
+            await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
+            return False
+
         await websocket.accept()
-        self.active_connections.append(websocket)
+        
+        # Initialize user connections if not exists
+        if user_id not in self.user_connections:
+            self.user_connections[user_id] = []
+        
+        self.user_connections[user_id].append(websocket)
+        self.user_channels[user_id] = set(channels)
+        self.total_connections += 1
+        return True
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.user_connections:
+            if websocket in self.user_connections[user_id]:
+                self.user_connections[user_id].remove(websocket)
+                self.total_connections -= 1
+                
+                # Clean up user entry if no more connections
+                if not self.user_connections[user_id]:
+                    del self.user_connections[user_id]
+                    del self.user_channels[user_id]
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+    async def broadcast_to_channel(self, message: dict, channel_id: int):
+        # Find all users who are members of this channel and send them the message
+        disconnected_websockets = []
+        for user_id, channels in self.user_channels.items():
+            if channel_id in channels:
+                if user_id in self.user_connections:
+                    for websocket in self.user_connections[user_id]:
+                        try:
+                            await websocket.send_json(message)
+                        except RuntimeError:
+                            # Connection is closed or invalid
+                            disconnected_websockets.append((websocket, user_id))
+        
+        # Clean up any disconnected websockets
+        for websocket, user_id in disconnected_websockets:
+            self.disconnect(websocket, user_id)
 
 manager = ConnectionManager()
 
@@ -78,26 +128,74 @@ async def register_user(user: schemas.UserCreate, db: Session = Depends(get_db))
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
-@app.websocket("/ws/{client_id}")
+@app.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    client_id: int,
     token: str,
     db: Session = Depends(get_db)
 ):
+    user_id = None
     try:
         # Verify token
         user = await get_current_user(token, db)
-        await manager.connect(websocket)
+        user_id = user.id
+        
+        # Get all channels the user is a member of
+        channels = crud.get_user_channels(db, user_id=user.id)
+        channel_ids = [channel.id for channel in channels]
+        
+        # Attempt to connect
+        if not await manager.connect(websocket, user.id, channel_ids):
+            return  # Connection was rejected due to limits
+        
         try:
             while True:
-                data = await websocket.receive_text()
-                await manager.broadcast(f"Client #{client_id} ({user.email}): {data}")
+                data = await websocket.receive_json()
+                channel_id = data.get('channel_id')
+                content = data.get('content')
+                
+                if not channel_id or not content:
+                    continue
+                
+                # Verify channel membership
+                if channel_id not in manager.user_channels[user.id]:
+                    continue
+                
+                # Create and save the message
+                message = crud.create_message(
+                    db=db,
+                    channel_id=channel_id,
+                    user_id=user.id,
+                    message=schemas.MessageCreate(content=content)
+                )
+                
+                # Prepare message data for broadcast
+                message_data = {
+                    "type": "new_message",
+                    "channel_id": channel_id,
+                    "message": {
+                        "id": message.id,
+                        "content": message.content,
+                        "created_at": message.created_at.isoformat(),
+                        "user_id": message.user_id,
+                        "channel_id": message.channel_id,
+                        "user": {
+                            "id": user.id,
+                            "email": user.email
+                        }
+                    }
+                }
+                await manager.broadcast_to_channel(message_data, channel_id)
         except WebSocketDisconnect:
-            manager.disconnect(websocket)
-            await manager.broadcast(f"Client #{client_id} ({user.email}) left the chat")
+            if user_id is not None:
+                manager.disconnect(websocket, user_id)
     except HTTPException:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    except Exception as e:
+        print(f"WebSocket error: {str(e)}")
+        if user_id is not None:
+            manager.disconnect(websocket, user_id)
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
 
 @app.get("/users/", response_model=List[schemas.User])
 def read_users(
@@ -154,7 +252,7 @@ def read_channel(
     return db_channel
 
 @app.put("/channels/{channel_id}", response_model=schemas.Channel)
-def update_channel_endpoint(
+async def update_channel_endpoint(
     channel_id: int,
     channel_update: schemas.ChannelCreate,
     db: Session = Depends(get_db),
@@ -163,13 +261,27 @@ def update_channel_endpoint(
     db_channel = crud.get_channel(db, channel_id=channel_id)
     if db_channel is None:
         raise HTTPException(status_code=404, detail="Channel not found")
-    # Check if user is member of channel
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
-    # Check if user is the owner
     if db_channel.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the channel owner can update the channel")
-    return crud.update_channel(db=db, channel_id=channel_id, channel_update=channel_update)
+    
+    updated_channel = crud.update_channel(db=db, channel_id=channel_id, channel_update=channel_update)
+    
+    # Broadcast channel update to all connected clients in this channel
+    channel_update_data = {
+        "type": "channel_update",
+        "channel_id": channel_id,
+        "channel": {
+            "id": updated_channel.id,
+            "name": updated_channel.name,
+            "description": updated_channel.description,
+            "owner_id": updated_channel.owner_id
+        }
+    }
+    await manager.broadcast_to_channel(channel_update_data, channel_id)
+    
+    return updated_channel
 
 @app.delete("/channels/{channel_id}", response_model=schemas.Channel)
 def delete_channel_endpoint(

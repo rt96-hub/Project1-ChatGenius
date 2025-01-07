@@ -23,18 +23,22 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-full">
+    <div className="flex flex-col h-screen w-full overflow-hidden">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
-          onChannelSelect={handleChannelSelect} 
-          refreshTrigger={refreshChannelList}
-        />
-        <ChatArea 
-          channelId={selectedChannelId} 
-          onChannelUpdate={handleChannelUpdate}
-          onChannelDelete={handleChannelDelete}
-        />
+        <div className="flex-none w-64">
+          <Sidebar 
+            onChannelSelect={handleChannelSelect} 
+            refreshTrigger={refreshChannelList}
+          />
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <ChatArea 
+            channelId={selectedChannelId} 
+            onChannelUpdate={handleChannelUpdate}
+            onChannelDelete={handleChannelDelete}
+          />
+        </div>
       </div>
     </div>
   )

@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
 import axios from 'axios';
 import ChannelHeader from './ChannelHeader';
-import InfiniteScroll from 'react-infinite-scroll-component';
+import { useConnection } from '../contexts/ConnectionContext';
 
 interface ChatAreaProps {
   channelId: number | null;
@@ -39,6 +39,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const [skip, setSkip] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const { connectionStatus, sendMessage, addMessageListener } = useConnection();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,12 +47,34 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
 
   useEffect(() => {
     if (channelId) {
-      // Reset pagination when changing channels
       setMessages([]);
       setSkip(0);
       setHasMore(true);
       fetchMessages(0, true);
       fetchChannelDetails();
+
+      // Set up WebSocket message listener
+      const removeListener = addMessageListener((data) => {
+        // Only process messages for the current channel
+        if (data.channel_id === channelId) {
+          switch (data.type) {
+            case 'new_message':
+              setMessages(prev => [...prev, data.message]);
+              scrollToBottom();
+              break;
+            case 'channel_update':
+              setChannel(data.channel);
+              if (onChannelUpdate) {
+                onChannelUpdate();
+              }
+              break;
+          }
+        }
+      });
+
+      return () => {
+        removeListener();
+      };
     } else {
       setChannel(null);
     }
@@ -72,9 +95,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     if (!container) return;
 
     const handleScroll = () => {
-      console.log('Scroll position:', container.scrollTop);
       if (container.scrollTop < 100 && !isLoadingMore && hasMore) {
-        console.log('Loading more messages...');
         loadMoreMessages();
       }
     };
@@ -85,7 +106,6 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
 
   const loadMoreMessages = async () => {
     if (!channelId || isLoadingMore || !hasMore) return;
-    console.log('Fetching more messages...');
     setIsLoadingMore(true);
     const container = messagesContainerRef.current;
     const previousScrollHeight = container ? container.scrollHeight : 0;
@@ -155,11 +175,20 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     }
   };
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!channelId || !newMessage.trim()) return;
 
     try {
+      // Send message through WebSocket
+      sendMessage({
+        channel_id: channelId,
+        content: newMessage.trim()
+      });
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Fallback to HTTP if WebSocket fails
       const token = localStorage.getItem('token');
       await axios.post(
         `http://localhost:8000/channels/${channelId}/messages`,
@@ -167,12 +196,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setNewMessage('');
-      // Fetch only the most recent messages after sending
-      setSkip(0);
-      setHasMore(true);
       fetchMessages(0, true);
-    } catch (error) {
-      console.error('Failed to send message:', error);
     }
   };
 
@@ -198,7 +222,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex flex-col h-full overflow-hidden">
       {channel && currentUserId && (
         <ChannelHeader
           channel={channel}
@@ -207,40 +231,32 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
           onChannelDelete={handleChannelDelete}
         />
       )}
-      <InfiniteScroll
-        dataLength={messages.length}
-        next={loadMoreMessages}
-        hasMore={hasMore}
-        inverse={true} // This loads the data in reverse order
-        scrollableTarget="scrollableDiv"
+      <div 
+        id="scrollableDiv"
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+        style={{ height: 'calc(100vh - 180px)' }}
       >
-        <div 
-          id="scrollableDiv"
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
-          style={{ height: 'calc(100vh - 250px)', overflowY: 'auto' }} // Increase space for the text entry area
-        >
-          {messages.map((message) => (
-            <div key={message.id} className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-300" />
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium">
-                    {message.user?.email || 'Unknown User'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(message.created_at).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="text-gray-800">{message.content}</p>
+        {messages.map((message) => (
+          <div key={message.id} className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-gray-300 flex-none" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <span className="font-medium truncate">
+                  {message.user?.email || 'Unknown User'}
+                </span>
+                <span className="text-xs text-gray-500 flex-none">
+                  {new Date(message.created_at).toLocaleTimeString()}
+                </span>
               </div>
+              <p className="text-gray-800 break-words">{message.content}</p>
             </div>
-          ))}
-          <div ref={messagesEndRef} /> {/* Scroll anchor */}
-        </div>
-      </InfiniteScroll>
-      <div className="border-t border-gray-200 p-4">
-        <form onSubmit={sendMessage} className="flex items-center gap-2">
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="flex-none border-t border-gray-200 p-4 bg-white">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
           <input
             type="text"
             value={newMessage}
@@ -250,7 +266,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
           />
           <button
             type="submit"
-            className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+            className="flex-none p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
             disabled={!newMessage.trim()}
           >
             <PaperAirplaneIcon className="h-5 w-5" />

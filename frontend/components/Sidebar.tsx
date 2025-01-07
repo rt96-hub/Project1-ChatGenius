@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { HashtagIcon, UserGroupIcon, PlusIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
 import CreateChannelModal from './CreateChannelModal';
+import { useConnection } from '../contexts/ConnectionContext';
 
 interface Channel {
   id: number;
@@ -17,6 +18,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
   const [channels, setChannels] = useState<Channel[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
+  const { connectionStatus, addMessageListener } = useConnection();
 
   const fetchChannels = async () => {
     try {
@@ -32,6 +34,23 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
 
   useEffect(() => {
     fetchChannels();
+    
+    // Set up WebSocket message listener for channel updates
+    const removeListener = addMessageListener((data) => {
+      if (data.type === 'channel_update') {
+        setChannels(prevChannels => 
+          prevChannels.map(ch => 
+            ch.id === data.channel.id 
+              ? { ...ch, name: data.channel.name }
+              : ch
+          )
+        );
+      }
+    });
+
+    return () => {
+      removeListener();
+    };
   }, [refreshTrigger]);
 
   const handleChannelSelect = (channelId: number) => {
@@ -40,8 +59,8 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
   };
 
   return (
-    <aside className="w-64 min-w-[16rem] bg-gray-800 text-white flex flex-col h-full">
-      <div className="p-4 border-b border-gray-700">
+    <aside className="w-64 flex-none bg-gray-800 text-white flex flex-col h-full overflow-hidden">
+      <div className="p-4 border-b border-gray-700 flex-none">
         <h2 className="text-xl font-bold">Workspace</h2>
       </div>
       
@@ -66,7 +85,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
                     selectedChannelId === channel.id ? 'bg-gray-700' : 'hover:bg-gray-700'
                   }`}
                 >
-                  <HashtagIcon className="h-4 w-4" />
+                  <HashtagIcon className="h-4 w-4 flex-none" />
                   <span className="truncate">{channel.name}</span>
                 </button>
               </li>
@@ -80,7 +99,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
             {['John Doe', 'Jane Smith', 'Team Lead'].map((user) => (
               <li key={user}>
                 <button className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-gray-700 transition-colors">
-                  <UserGroupIcon className="h-4 w-4" />
+                  <UserGroupIcon className="h-4 w-4 flex-none" />
                   <span className="truncate">{user}</span>
                 </button>
               </li>
