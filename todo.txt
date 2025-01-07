@@ -49,3 +49,4 @@ TODO List:
 13. delete messages
 14. message notification when a message is recieved on a channel you are in, and the channel is not open
 15. add a "leave channel" button to the channel page
+16. confirm delete channel dialog instead of browser alert

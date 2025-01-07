@@ -60,7 +60,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
         if (data.channel_id === channelId) {
           switch (data.type) {
             case 'new_message':
-              setMessages(prev => [...prev, data.message]);
+              setMessages(prev => [...prev, data.message].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
               scrollToBottom();
               break;
             case 'channel_update':
@@ -128,12 +128,12 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
       });
       
       if (isInitial) {
-        setMessages(response.data.messages);
+        setMessages(response.data.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
       } else {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const newMessages = response.data.messages.filter(m => !existingIds.has(m.id));
-          return [...newMessages, ...prev];
+          return [...newMessages, ...prev].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         });
       }
       setHasMore(response.data.has_more);
