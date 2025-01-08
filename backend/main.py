@@ -412,6 +412,77 @@ def read_channel_messages(
     
     return crud.get_channel_messages(db, channel_id=channel_id, skip=skip, limit=limit)
 
+@app.put("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
+async def update_message_endpoint(
+    channel_id: int,
+    message_id: int,
+    message: schemas.MessageCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Check if message exists and user has permission
+    db_message = crud.get_message(db, message_id=message_id)
+    if db_message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if db_message.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Message does not belong to this channel")
+    if db_message.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the message author can edit the message")
+    
+    # Update the message
+    updated_message = crud.update_message(db=db, message_id=message_id, message_update=message)
+    
+    # Broadcast the update to all users in the channel
+    message_update_data = {
+        "type": "message_update",
+        "channel_id": channel_id,
+        "message": {
+            "id": updated_message.id,
+            "content": updated_message.content,
+            "created_at": updated_message.created_at.isoformat(),
+            "updated_at": updated_message.updated_at.isoformat(),
+            "user_id": updated_message.user_id,
+            "channel_id": updated_message.channel_id,
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "name": current_user.name
+            }
+        }
+    }
+    await manager.broadcast_to_channel(message_update_data, channel_id)
+    
+    return updated_message
+
+@app.delete("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
+async def delete_message_endpoint(
+    channel_id: int,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Check if message exists and user has permission
+    db_message = crud.get_message(db, message_id=message_id)
+    if db_message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if db_message.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Message does not belong to this channel")
+    if db_message.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the message author can delete the message")
+    
+    # Delete the message
+    deleted_message = crud.delete_message(db=db, message_id=message_id)
+    
+    # Broadcast the deletion to all users in the channel
+    message_delete_data = {
+        "type": "message_delete",
+        "channel_id": channel_id,
+        "message_id": message_id
+    }
+    await manager.broadcast_to_channel(message_delete_data, channel_id)
+    
+    return deleted_message
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

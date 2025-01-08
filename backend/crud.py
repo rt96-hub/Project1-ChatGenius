@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import models, schemas
 from sqlalchemy.orm import joinedload
 import logging
@@ -126,6 +126,34 @@ def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int
         total=total,
         has_more=has_more
     )
+
+def update_message(db: Session, message_id: int, message_update: schemas.MessageCreate) -> models.Message:
+    db_message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not db_message:
+        return None
+    
+    db_message.content = message_update.content
+    db.commit()
+    db.refresh(db_message)
+    return db_message
+
+def delete_message(db: Session, message_id: int) -> models.Message:
+    db_message = (db.query(models.Message)
+                 .filter(models.Message.id == message_id)
+                 .options(joinedload(models.Message.user))
+                 .first())
+    if not db_message:
+        return None
+    
+    # Create a copy of the message with its relationships
+    message_copy = schemas.Message.from_orm(db_message)
+    
+    db.delete(db_message)
+    db.commit()
+    return message_copy
+
+def get_message(db: Session, message_id: int) -> models.Message:
+    return db.query(models.Message).filter(models.Message.id == message_id).first()
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

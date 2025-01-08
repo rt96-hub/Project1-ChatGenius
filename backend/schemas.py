@@ -20,6 +20,7 @@ class UserInChannel(BaseModel):
 class Message(MessageBase):
     id: int
     created_at: datetime
+    updated_at: datetime
     user_id: int
     channel_id: int
     user: UserInChannel

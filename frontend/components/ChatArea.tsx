@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
 import ChannelHeader from './ChannelHeader';
+import ChatMessage from './ChatMessage';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useApi } from '@/hooks/useApi';
 
@@ -40,6 +41,8 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const [skip, setSkip] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentChannelRef = useRef<number | null>(null);
   const { connectionStatus, sendMessage, addMessageListener } = useConnection();
 
   const scrollToBottom = () => {
@@ -47,21 +50,51 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   };
 
   useEffect(() => {
+    // Cleanup function to abort any pending requests when unmounting
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Abort any pending requests when switching channels
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    currentChannelRef.current = channelId;
+    
     if (channelId) {
+      // Reset state for new channel
       setMessages([]);
       setSkip(0);
       setHasMore(true);
+      setChannel(null);
+      
+      // Create new abort controller for this channel's requests
+      abortControllerRef.current = new AbortController();
+      
       fetchMessages(0, true);
       fetchChannelDetails();
 
       // Set up WebSocket message listener
       const removeListener = addMessageListener((data) => {
         // Only process messages for the current channel
-        if (data.channel_id === channelId) {
+        if (data.channel_id === currentChannelRef.current) {
           switch (data.type) {
             case 'new_message':
               setMessages(prev => [...prev, data.message].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
               scrollToBottom();
+              break;
+            case 'message_update':
+              setMessages(prev => prev.map(msg => 
+                msg.id === data.message.id ? data.message : msg
+              ));
+              break;
+            case 'message_delete':
+              setMessages(prev => prev.filter(msg => msg.id !== data.message_id));
               break;
             case 'channel_update':
               setChannel(data.channel);
@@ -75,9 +108,15 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
 
       return () => {
         removeListener();
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
       };
     } else {
       setChannel(null);
+      setMessages([]);
+      setSkip(0);
+      setHasMore(true);
     }
   }, [channelId]);
 
@@ -106,26 +145,32 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   }, [isLoadingMore, hasMore, messagesContainerRef.current]);
 
   const loadMoreMessages = async () => {
-    if (!channelId || isLoadingMore || !hasMore) return;
+    if (!channelId || isLoadingMore || !hasMore || channelId !== currentChannelRef.current) return;
     setIsLoadingMore(true);
     const container = messagesContainerRef.current;
     const previousScrollHeight = container ? container.scrollHeight : 0;
     const previousScrollTop = container ? container.scrollTop : 0;
     const response = await fetchMessages(skip + 50, false);
-    setSkip(prev => prev + 50);
-    setIsLoadingMore(false);
-    if (container && response) {
-      const newScrollHeight = container.scrollHeight;
-      container.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+    if (channelId === currentChannelRef.current) {
+      setSkip(prev => prev + 50);
+      setIsLoadingMore(false);
+      if (container && response) {
+        const newScrollHeight = container.scrollHeight;
+        container.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+      }
     }
   };
 
   const fetchMessages = async (skipCount: number, isInitial: boolean) => {
-    if (!channelId) return null;
+    if (!channelId || channelId !== currentChannelRef.current) return null;
     try {
       const response = await api.get(`/channels/${channelId}/messages`, {
-        params: { skip: skipCount, limit: 50 }
+        params: { skip: skipCount, limit: 50 },
+        signal: abortControllerRef.current?.signal
       });
+      
+      // Double check channel hasn't changed during request
+      if (channelId !== currentChannelRef.current) return null;
       
       if (isInitial) {
         setMessages(response.data.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
@@ -139,6 +184,10 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
       setHasMore(response.data.has_more);
       return response.data.messages;
     } catch (error) {
+      if (error.name === 'AbortError') {
+        // Request was aborted, ignore
+        return null;
+      }
       console.error('Failed to fetch messages:', error);
       return null;
     }
@@ -202,6 +251,16 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     }
   };
 
+  const handleMessageUpdate = (updatedMessage: Message) => {
+    setMessages(prev => prev.map(msg => 
+      msg.id === updatedMessage.id ? updatedMessage : msg
+    ));
+  };
+
+  const handleMessageDelete = (messageId: number) => {
+    setMessages(prev => prev.filter(msg => msg.id !== messageId));
+  };
+
   if (!channelId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white text-gray-500">
@@ -227,20 +286,14 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
         style={{ height: 'calc(100vh - 180px)' }}
       >
         {messages.map((message) => (
-          <div key={message.id} className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-300 flex-none" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2">
-                <span className="font-medium truncate">
-                  {message.user?.email || 'Unknown User'}
-                </span>
-                <span className="text-xs text-gray-500 flex-none">
-                  {new Date(message.created_at).toLocaleTimeString()}
-                </span>
-              </div>
-              <p className="text-gray-800 break-words">{message.content}</p>
-            </div>
-          </div>
+          <ChatMessage
+            key={message.id}
+            message={message}
+            currentUserId={currentUserId || 0}
+            channelId={channelId || 0}
+            onMessageUpdate={handleMessageUpdate}
+            onMessageDelete={handleMessageDelete}
+          />
         ))}
         <div ref={messagesEndRef} />
       </div>
