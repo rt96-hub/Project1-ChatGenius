@@ -31,6 +31,8 @@ class Message(MessageBase):
 class ChannelBase(BaseModel):
     name: str
     description: Optional[str] = None
+    is_private: Optional[bool] = False
+    join_code: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass
@@ -78,4 +80,28 @@ class MessageList(BaseModel):
 
     class Config:
         orm_mode = True
+
+class ChannelRoleBase(BaseModel):
+    role: str
+
+class ChannelRole(ChannelRoleBase):
+    id: int
+    channel_id: int
+    user_id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class ChannelInvite(BaseModel):
+    join_code: str
+    channel_id: int
+
+class ChannelMemberUpdate(BaseModel):
+    user_id: int
+    role: Optional[str] = None
+
+class ChannelPrivacyUpdate(BaseModel):
+    is_private: bool
+    join_code: Optional[str] = None
 

@@ -1,0 +1,12 @@
+Please use the following rules when reading and writing code:
+ - Before reading or writing any code, say "READING MD DOCS" and then read any .md files in the directory or subdirectories you are about to read or write code in.
+ - After writing code, please say "WRITING MD DOCS" and then update any .md files in the directory or subdirectories to reflect the changes you made.
+ - In those .md files, please add a section for any new files or components you created, update any relevant sections for existing files or components. 
+ - In the .md file, include what the code does, how it works, and any components and function that are contained within or referenced by the code.
+ - If the code you are writing involves endpoints or requests, look at the backend/api_docs.md file first, please include the formats of the requests and responses in the .md file.
+
+Best practices:
+ - Use the simplest solution to solve a problem.
+ - Write logging statements to help debug the code.
+ - Try to avoid importing unnecessary libraries or packages. But if you think they are necessary, detail the reasons why.
+ - If you are unsure about a solution, ask for help.

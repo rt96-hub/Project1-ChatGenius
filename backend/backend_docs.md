@@ -27,8 +27,8 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    - Relationships: messages, channels
    
 2. `Channel`
-   - Fields: id, name, description, owner_id, created_at
-   - Relationships: messages, users, owner
+   - Fields: id, name, description, owner_id, created_at, is_private, join_code
+   - Relationships: messages, users, owner, roles
    
 3. `Message`
    - Fields: id, content, created_at, updated_at, user_id, channel_id
@@ -36,6 +36,10 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    
 4. `UserChannel` (Association table)
    - Fields: user_id, channel_id
+
+5. `ChannelRole`
+   - Fields: id, channel_id, user_id, role, created_at
+   - Relationships: channel, user
 
 **Dependencies**:
 - SQLAlchemy
@@ -51,6 +55,10 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    
 2. Channel-related:
    - `ChannelBase`, `ChannelCreate`, `Channel`
+   - `ChannelRoleBase`, `ChannelRole`
+   - `ChannelInvite`
+   - `ChannelMemberUpdate`
+   - `ChannelPrivacyUpdate`
    
 3. User-related:
    - `UserBase`, `UserCreate`, `User`
@@ -81,6 +89,13 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    - `get_user_channels(db, user_id, skip, limit)`
    - `update_channel(db, channel_id, channel_update)`
    - `delete_channel(db, channel_id)`
+   - `get_channel_members(db, channel_id)`
+   - `remove_channel_member(db, channel_id, user_id)`
+   - `update_channel_privacy(db, channel_id, privacy_update)`
+   - `create_channel_invite(db, channel_id)`
+   - `get_user_channel_role(db, channel_id, user_id)`
+   - `update_user_channel_role(db, channel_id, user_id, role)`
+   - `leave_channel(db, channel_id, user_id)`
 
 3. Message Operations:
    - `create_message(db, channel_id, user_id, message)`
@@ -200,6 +215,21 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    GET /channels/{channel_id}/messages - List messages
    PUT /channels/{channel_id}/messages/{message_id} - Update message
    DELETE /channels/{channel_id}/messages/{message_id} - Delete message
+   ```
+
+6. Channel Membership:
+   ```
+   GET /channels/{channel_id}/members - List channel members
+   DELETE /channels/{channel_id}/members/{user_id} - Remove member
+   PUT /channels/{channel_id}/privacy - Update privacy settings
+   POST /channels/{channel_id}/invite - Create invite
+   POST /channels/{channel_id}/leave - Leave channel
+   ```
+
+7. Channel Roles:
+   ```
+   GET /channels/{channel_id}/role - Get user's role
+   PUT /channels/{channel_id}/roles/{user_id} - Update user's role
    ```
 
 **Dependencies**:
@@ -375,3 +405,36 @@ Required for migrations:
 - alembic
 - sqlalchemy
 - psycopg2-binary (for PostgreSQL) 
+
+### WebSocket Events
+
+The application supports the following real-time events:
+
+1. Message Events:
+   - `new_message`: When a new message is sent
+   - `message_update`: When a message is edited
+   - `message_delete`: When a message is deleted
+
+2. Channel Events:
+   - `channel_update`: When channel details are updated
+   - `member_joined`: When a new member joins a channel
+   - `member_left`: When a member leaves a channel
+   - `role_updated`: When a member's role is updated
+   - `privacy_updated`: When channel privacy settings are updated
+
+### API Endpoints
+
+1. Channel Membership:
+   ```
+   GET /channels/{channel_id}/members - List channel members
+   DELETE /channels/{channel_id}/members/{user_id} - Remove member
+   PUT /channels/{channel_id}/privacy - Update privacy settings
+   POST /channels/{channel_id}/invite - Create invite
+   POST /channels/{channel_id}/leave - Leave channel
+   ```
+
+2. Channel Roles:
+   ```
+   GET /channels/{channel_id}/role - Get user's role
+   PUT /channels/{channel_id}/roles/{user_id} - Update user's role
+   ``` 

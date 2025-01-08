@@ -459,6 +459,48 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
+5. **Member Joined**
+```json
+{
+    "type": "member_joined",
+    "channel_id": 1,
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    }
+}
+```
+
+6. **Member Left**
+```json
+{
+    "type": "member_left",
+    "channel_id": 1,
+    "user_id": 1
+}
+```
+
+7. **Role Updated**
+```json
+{
+    "type": "role_updated",
+    "channel_id": 1,
+    "user_id": 1,
+    "role": "moderator"
+}
+```
+
+8. **Privacy Updated**
+```json
+{
+    "type": "privacy_updated",
+    "channel_id": 1,
+    "is_private": true
+}
+```
+
 ## Error Responses
 
 ### 1. Unauthorized (401)
@@ -493,5 +535,151 @@ Establishes a WebSocket connection for real-time updates.
 ```json
 {
     "detail": "Internal server error"
+}
+```
+
+## Channel Membership and Roles
+
+### 1. List Channel Members
+```http
+GET /channels/{channel_id}/members
+```
+
+Returns a list of users who are members of the channel.
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "email": "user1@example.com",
+        "name": "User One"
+    },
+    {
+        "id": 2,
+        "email": "user2@example.com",
+        "name": "User Two"
+    }
+]
+```
+
+### 2. Remove Channel Member
+```http
+DELETE /channels/{channel_id}/members/{user_id}
+```
+
+Removes a user from a channel. Only the channel owner can perform this action.
+
+**Response (200 OK):**
+```json
+{
+    "message": "Member removed successfully"
+}
+```
+
+### 3. Update Channel Privacy
+```http
+PUT /channels/{channel_id}/privacy
+```
+
+Updates a channel's privacy settings. Only the channel owner can perform this action.
+
+**Request Body:**
+```json
+{
+    "is_private": true,
+    "join_code": "optional_join_code"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "name": "channel-name",
+    "description": "Channel description",
+    "is_private": true,
+    "join_code": "abc123xyz",
+    "owner_id": 1,
+    "created_at": "2024-01-07T12:00:00Z",
+    "users": [
+        {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name"
+        }
+    ]
+}
+```
+
+### 4. Create Channel Invite
+```http
+POST /channels/{channel_id}/invite
+```
+
+Creates an invite code for the channel. Any channel member can create an invite.
+
+**Response (200 OK):**
+```json
+{
+    "join_code": "abc123xyz",
+    "channel_id": 1
+}
+```
+
+### 5. Get User's Channel Role
+```http
+GET /channels/{channel_id}/role?user_id={user_id}
+```
+
+Returns the role of a specific user in the channel.
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "channel_id": 1,
+    "user_id": 2,
+    "role": "moderator",
+    "created_at": "2024-01-07T12:00:00Z"
+}
+```
+
+### 6. Update User's Channel Role
+```http
+PUT /channels/{channel_id}/roles/{user_id}
+```
+
+Updates a user's role in the channel. Only the channel owner can perform this action.
+
+**Request Body:**
+```json
+{
+    "role": "moderator"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "channel_id": 1,
+    "user_id": 2,
+    "role": "moderator",
+    "created_at": "2024-01-07T12:00:00Z"
+}
+```
+
+### 7. Leave Channel
+```http
+POST /channels/{channel_id}/leave
+```
+
+Allows a user to leave a channel. If the user is the owner, ownership will be transferred to another member if possible.
+
+**Response (200 OK):**
+```json
+{
+    "message": "Successfully left the channel"
 }
 ``` 

@@ -155,5 +155,98 @@ def delete_message(db: Session, message_id: int) -> models.Message:
 def get_message(db: Session, message_id: int) -> models.Message:
     return db.query(models.Message).filter(models.Message.id == message_id).first()
 
+def get_channel_members(db: Session, channel_id: int):
+    channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
+    if not channel:
+        return None
+    return channel.users
+
+def remove_channel_member(db: Session, channel_id: int, user_id: int):
+    db_user_channel = (db.query(models.UserChannel)
+                      .filter(models.UserChannel.channel_id == channel_id,
+                             models.UserChannel.user_id == user_id)
+                      .first())
+    if db_user_channel:
+        # Delete any roles the user has in the channel
+        db.query(models.ChannelRole).filter(
+            models.ChannelRole.channel_id == channel_id,
+            models.ChannelRole.user_id == user_id
+        ).delete()
+        
+        # Delete the user-channel association
+        db.delete(db_user_channel)
+        db.commit()
+        return True
+    return False
+
+def update_channel_privacy(db: Session, channel_id: int, privacy_update: schemas.ChannelPrivacyUpdate):
+    db_channel = get_channel(db, channel_id)
+    if db_channel:
+        db_channel.is_private = privacy_update.is_private
+        db_channel.join_code = privacy_update.join_code
+        db.commit()
+        db.refresh(db_channel)
+    return db_channel
+
+def create_channel_invite(db: Session, channel_id: int) -> str:
+    import secrets
+    import string
+
+    # Generate a random join code
+    alphabet = string.ascii_letters + string.digits
+    join_code = ''.join(secrets.choice(alphabet) for _ in range(10))
+
+    db_channel = get_channel(db, channel_id)
+    if db_channel:
+        db_channel.join_code = join_code
+        db.commit()
+        db.refresh(db_channel)
+        return join_code
+    return None
+
+def get_user_channel_role(db: Session, channel_id: int, user_id: int):
+    return (db.query(models.ChannelRole)
+            .filter(models.ChannelRole.channel_id == channel_id,
+                   models.ChannelRole.user_id == user_id)
+            .first())
+
+def update_user_channel_role(db: Session, channel_id: int, user_id: int, role: str):
+    db_role = get_user_channel_role(db, channel_id, user_id)
+    if db_role:
+        db_role.role = role
+        db.commit()
+        db.refresh(db_role)
+    else:
+        db_role = models.ChannelRole(
+            channel_id=channel_id,
+            user_id=user_id,
+            role=role
+        )
+        db.add(db_role)
+        db.commit()
+        db.refresh(db_role)
+    return db_role
+
+def leave_channel(db: Session, channel_id: int, user_id: int):
+    db_channel = get_channel(db, channel_id)
+    if not db_channel:
+        return None
+    
+    # Check if user is the owner
+    if db_channel.owner_id == user_id:
+        # Find another user to transfer ownership to
+        other_user = (db.query(models.UserChannel)
+                     .filter(models.UserChannel.channel_id == channel_id,
+                            models.UserChannel.user_id != user_id)
+                     .first())
+        if other_user:
+            db_channel.owner_id = other_user.user_id
+        else:
+            # If no other users, delete the channel
+            return delete_channel(db, channel_id)
+    
+    # Remove user from channel
+    return remove_channel_member(db, channel_id, user_id)
+
 # TODO: Add more CRUD operations for channels, messages, etc.
 

@@ -25,10 +25,13 @@ class Channel(Base):
     description = Column(String, nullable=True)
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    is_private = Column(Boolean, default=False)
+    join_code = Column(String, nullable=True)
 
     messages = relationship("Message", back_populates="channel")
     users = relationship("User", secondary="user_channels", back_populates="channels")
     owner = relationship("User", foreign_keys=[owner_id])
+    roles = relationship("ChannelRole", back_populates="channel")
 
 class Message(Base):
     __tablename__ = "messages"
@@ -48,4 +51,16 @@ class UserChannel(Base):
 
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     channel_id = Column(Integer, ForeignKey("channels.id"), primary_key=True)
+
+class ChannelRole(Base):
+    __tablename__ = "channel_roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    channel = relationship("Channel", back_populates="roles")
+    user = relationship("User")
 

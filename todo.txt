@@ -1,16 +1,6 @@
 TODO List:
 
-1. Implement email verification system:
-   - Send verification email after signup
-   - Create verification token system
-   - Add email verification endpoint
-   - Add UI for email verification status
-   - Prevent unverified users from accessing certain features 
 
-2. Implement password reset system:
-   - Add password reset endpoint
-   - Add UI for password reset status
-   - Prevent unverified users from accessing certain features 
 
 3. Design tests for the authentication system
    - Add tests for the authentication system
@@ -24,21 +14,19 @@ TODO List:
    - Add AI to summarize channel conversations, "summary of last x days"
 
 6. channel permissions and roles
-   - add users to channels
+   - channel popout ui window (members, leave, invite, edit name/description, delete channel)
+   - view users in a channel
+   - leave channel
+   - make channels public/private
+   - add/remove users to channels
    - Add channel permissions and roles
    - Add UI for channel permissions and roles
-
-7. edit messages, delete messages, show timestamp of sent, or edited messages
-   - Add edit message endpoint
-   - Add delete message endpoint
-   - Add timestamp of sent, or edited messages
-   - Add updated_at field to message model
 
 8. add user profile
    - Add user profile page
    - name, avatar, bio, email, mutual channels
 
-9. discover other users
+9. user interactions (search, send dms, add to channels, click a users message to view their profile)
    - Search for users by name, email, or mutual channels
    - Send dms, add to channels
    - click a users message to view their profile
@@ -49,7 +37,8 @@ TODO List:
 14. add a "leave channel" button to the channel page
 15. confirm delete channel dialog instead of browser alert
 16. pin channels and dms
-17. add a leave channel button to the channel page
+17. media and file uploads (media table, media_messages table, message text can be blank if media is present)
+18. Multitenancy???
 
 
 18. test skipping channel message requests skip pages

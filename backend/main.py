@@ -1,7 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict, Set
 import models, schemas, crud
 from database import SessionLocal, engine
 from auth0 import get_current_user, verify_token
@@ -46,8 +46,9 @@ def get_db():
 
 class ConnectionManager:
     def __init__(self):
-        self.user_connections: dict[int, list[WebSocket]] = {}
-        self.user_channels: dict[int, set[int]] = {}
+        self.active_connections: Dict[WebSocket, int] = {}
+        self.user_connections: Dict[int, List[WebSocket]] = {}
+        self.user_channels: Dict[int, Set[int]] = {}
         self.total_connections = 0
 
     async def connect(self, websocket: WebSocket, user_id: int, channels: list[int]):
@@ -96,6 +97,44 @@ class ConnectionManager:
         
         for websocket, user_id in disconnected_websockets:
             self.disconnect(websocket, user_id)
+
+    async def broadcast_member_joined(self, channel_id: int, user: schemas.User):
+        message = {
+            "type": "member_joined",
+            "channel_id": channel_id,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name,
+                "picture": user.picture
+            }
+        }
+        await self.broadcast_to_channel(message, channel_id)
+
+    async def broadcast_member_left(self, channel_id: int, user_id: int):
+        message = {
+            "type": "member_left",
+            "channel_id": channel_id,
+            "user_id": user_id
+        }
+        await self.broadcast_to_channel(message, channel_id)
+
+    async def broadcast_role_updated(self, channel_id: int, user_id: int, role: str):
+        message = {
+            "type": "role_updated",
+            "channel_id": channel_id,
+            "user_id": user_id,
+            "role": role
+        }
+        await self.broadcast_to_channel(message, channel_id)
+
+    async def broadcast_privacy_updated(self, channel_id: int, is_private: bool):
+        message = {
+            "type": "privacy_updated",
+            "channel_id": channel_id,
+            "is_private": is_private
+        }
+        await self.broadcast_to_channel(message, channel_id)
 
 manager = ConnectionManager()
 
@@ -482,6 +521,124 @@ async def delete_message_endpoint(
     await manager.broadcast_to_channel(message_delete_data, channel_id)
     
     return deleted_message
+
+@app.get("/channels/{channel_id}/members", response_model=List[schemas.UserInChannel])
+def get_channel_members_endpoint(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    return crud.get_channel_members(db, channel_id=channel_id)
+
+@app.delete("/channels/{channel_id}/members/{user_id}")
+async def remove_channel_member_endpoint(
+    channel_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if db_channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only channel owner can remove members")
+    
+    if crud.remove_channel_member(db, channel_id=channel_id, user_id=user_id):
+        await manager.broadcast_member_left(channel_id, user_id)
+        return {"message": "Member removed successfully"}
+    raise HTTPException(status_code=404, detail="Member not found")
+
+@app.put("/channels/{channel_id}/privacy", response_model=schemas.Channel)
+async def update_channel_privacy_endpoint(
+    channel_id: int,
+    privacy_update: schemas.ChannelPrivacyUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if db_channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only channel owner can update privacy settings")
+    
+    updated_channel = crud.update_channel_privacy(db, channel_id=channel_id, privacy_update=privacy_update)
+    await manager.broadcast_privacy_updated(channel_id, privacy_update.is_private)
+    return updated_channel
+
+@app.post("/channels/{channel_id}/invite", response_model=schemas.ChannelInvite)
+def create_channel_invite_endpoint(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    join_code = crud.create_channel_invite(db, channel_id=channel_id)
+    if join_code:
+        return schemas.ChannelInvite(join_code=join_code, channel_id=channel_id)
+    raise HTTPException(status_code=500, detail="Failed to create invite")
+
+@app.get("/channels/{channel_id}/role", response_model=schemas.ChannelRole)
+def get_channel_role_endpoint(
+    channel_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    role = crud.get_user_channel_role(db, channel_id=channel_id, user_id=user_id)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Role not found")
+    return role
+
+@app.put("/channels/{channel_id}/roles/{user_id}", response_model=schemas.ChannelRole)
+async def update_channel_role_endpoint(
+    channel_id: int,
+    user_id: int,
+    role_update: schemas.ChannelRoleBase,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if db_channel.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only channel owner can update roles")
+    
+    updated_role = crud.update_user_channel_role(
+        db, channel_id=channel_id, user_id=user_id, role=role_update.role
+    )
+    await manager.broadcast_role_updated(channel_id, user_id, role_update.role)
+    return updated_role
+
+@app.post("/channels/{channel_id}/leave")
+async def leave_channel_endpoint(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    
+    if crud.leave_channel(db, channel_id=channel_id, user_id=current_user.id):
+        await manager.broadcast_member_left(channel_id, current_user.id)
+        return {"message": "Successfully left the channel"}
+    raise HTTPException(status_code=500, detail="Failed to leave channel")
 
 if __name__ == "__main__":
     import uvicorn
