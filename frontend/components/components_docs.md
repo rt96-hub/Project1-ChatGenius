@@ -289,6 +289,57 @@ Props:
     }
     ```
 
+### UserProfilePopout.tsx
+**Purpose**: Modal component for displaying and editing user profiles.
+
+**Key Features**:
+- Display user profile information (name, email, bio, profile picture)
+- Edit functionality for user's own profile
+- View-only mode for other users' profiles
+- Responsive design with mobile support
+- Loading states and error handling
+
+**Props**:
+```typescript
+interface UserProfilePopoutProps {
+  user: {
+    id: number;
+    email: string;
+    name: string;
+    picture?: string;
+    bio?: string;
+  };
+  isCurrentUser: boolean;
+  onClose: () => void;
+  onUpdateProfile?: (updates: { name?: string; bio?: string }) => Promise<void>;
+}
+```
+
+**States**:
+- `isEditing`: Boolean to toggle between view and edit modes
+- `name`: String for edited name value
+- `bio`: String for edited bio value
+- `isLoading`: Boolean for loading state during profile updates
+- `error`: String for error messages
+
+**Key Functions**:
+- `handleSubmit`: Handles form submission for profile updates
+- `setIsEditing`: Toggles between view and edit modes
+- `onClose`: Closes the profile popout
+- `onUpdateProfile`: Callback for profile updates
+
+**Usage Example**:
+```typescript
+<UserProfilePopout
+  user={currentUser}
+  isCurrentUser={true}
+  onClose={() => setShowProfile(false)}
+  onUpdateProfile={async (updates) => {
+    // Handle profile update logic
+  }}
+/>
+```
+
 ## Data Models
 
 ### Message Interface

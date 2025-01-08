@@ -13,6 +13,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)
+    bio = Column(String, nullable=True)
 
     messages = relationship("Message", back_populates="user")
     channels = relationship("Channel", secondary="user_channels", back_populates="users")

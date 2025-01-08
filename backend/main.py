@@ -334,6 +334,44 @@ def read_user(
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
+@app.put("/users/me/bio", response_model=schemas.User)
+async def update_user_bio(
+    bio_update: schemas.UserBioUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Update the current user's bio"""
+    try:
+        updated_user = crud.update_user_bio(db, user_id=current_user.id, bio=bio_update.bio)
+        if updated_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return updated_user
+    except Exception as e:
+        logger.error(f"Error updating user bio: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating user bio: {str(e)}"
+        )
+
+@app.put("/users/me/name", response_model=schemas.User)
+async def update_user_name(
+    name_update: schemas.UserNameUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Update the current user's name"""
+    try:
+        updated_user = crud.update_user_name(db, user_id=current_user.id, name=name_update.name)
+        if updated_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return updated_user
+    except Exception as e:
+        logger.error(f"Error updating user name: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating user name: {str(e)}"
+        )
+
 # Channel endpoints
 @app.post("/channels/", response_model=schemas.Channel)
 async def create_channel_endpoint(

@@ -1,12 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import UserProfilePopout from './UserProfilePopout';
+import { useApi } from '@/hooks/useApi';
 
 export type ConnectionStatus = 'connected' | 'idle' | 'away' | 'disconnected' | 'connecting';
 
-interface ProfileStatusProps {
+interface User {
+  id: number;
   email: string;
+  name: string;
+  picture?: string;
+  bio?: string;
+}
+
+interface ProfileStatusProps {
+  user: User;
   connectionStatus: ConnectionStatus;
+  onProfileUpdate?: (updates: { name?: string; bio?: string }) => Promise<void>;
 }
 
 const getStatusColor = (status: ConnectionStatus): string => {
@@ -42,22 +53,45 @@ const getStatusTitle = (status: ConnectionStatus): string => {
   }
 };
 
-export default function ProfileStatus({ email, connectionStatus }: ProfileStatusProps) {
-  // Get first letter of email for avatar
-  const initial = email ? email[0].toUpperCase() : '?';
+export default function ProfileStatus({ user, connectionStatus, onProfileUpdate }: ProfileStatusProps) {
+  const [showProfile, setShowProfile] = useState(false);
+  const initial = user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase();
 
   return (
-    <button className="relative inline-block cursor-pointer hover:opacity-90 transition-opacity">
-      {/* Profile Circle */}
-      <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
-        {initial}
-      </div>
-      
-      {/* Status Indicator */}
-      <div 
-        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(connectionStatus)} shadow-sm`}
-        title={`Status: ${getStatusTitle(connectionStatus)}`}
-      />
-    </button>
+    <>
+      <button 
+        className="relative inline-block cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={() => setShowProfile(true)}
+      >
+        {/* Profile Circle */}
+        {user.picture ? (
+          <img 
+            src={user.picture} 
+            alt={user.name} 
+            className="w-9 h-9 rounded-full object-cover shadow-sm"
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
+            {initial}
+          </div>
+        )}
+        
+        {/* Status Indicator */}
+        <div 
+          className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(connectionStatus)} shadow-sm`}
+          title={`Status: ${getStatusTitle(connectionStatus)}`}
+        />
+      </button>
+
+      {/* Profile Popout */}
+      {showProfile && (
+        <UserProfilePopout
+          user={user}
+          isCurrentUser={true}
+          onClose={() => setShowProfile(false)}
+          onUpdateProfile={onProfileUpdate}
+        />
+      )}
+    </>
   );
 } 

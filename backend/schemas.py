@@ -13,6 +13,8 @@ class MessageCreate(MessageBase):
 class UserInChannel(BaseModel):
     id: int
     email: str
+    name: Optional[str] = None
+    picture: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -51,9 +53,16 @@ class UserBase(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
     picture: Optional[str] = None
+    bio: Optional[str] = None
 
 class UserCreate(UserBase):
     auth0_id: str
+
+class UserBioUpdate(BaseModel):
+    bio: str
+
+class UserNameUpdate(BaseModel):
+    name: str
 
 class User(UserBase):
     id: int

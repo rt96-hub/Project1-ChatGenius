@@ -30,7 +30,13 @@ export default function Header() {
         {user && (
           <div className="flex items-center gap-4">
             <ProfileStatus 
-              email={user.email || ''} 
+              user={{
+                id: user.id,
+                email: user.email || '',
+                name: user.name || user.email || '',
+                picture: user.picture,
+                bio: user.bio
+              }}
               connectionStatus={connectionStatus}
             />
             <button

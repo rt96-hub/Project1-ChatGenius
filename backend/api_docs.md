@@ -135,7 +135,64 @@ Returns information about a specific user.
     "picture": "https://example.com/picture.jpg",
     "auth0_id": "auth0|123456789",
     "is_active": true,
-    "created_at": "2024-01-07T12:00:00Z"
+    "created_at": "2024-01-07T12:00:00Z",
+    "bio": "User's bio text"
+}
+```
+
+### 4. Update User Bio
+```http
+PUT /users/me/bio
+```
+
+Updates the bio of the currently authenticated user.
+
+**Request Body:**
+```json
+{
+    "bio": "New bio text"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "email": "user@example.com",
+    "name": "User Name",
+    "picture": "https://example.com/picture.jpg",
+    "auth0_id": "auth0|123456789",
+    "is_active": true,
+    "created_at": "2024-01-07T12:00:00Z",
+    "bio": "New bio text"
+}
+```
+
+### 5. Update User Name
+```http
+PUT /users/me/name
+```
+
+Updates the name of the currently authenticated user.
+
+**Request Body:**
+```json
+{
+    "name": "New User Name"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "email": "user@example.com",
+    "name": "New User Name",
+    "picture": "https://example.com/picture.jpg",
+    "auth0_id": "auth0|123456789",
+    "is_active": true,
+    "created_at": "2024-01-07T12:00:00Z",
+    "bio": "User's bio text"
 }
 ```
 

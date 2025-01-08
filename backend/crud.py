@@ -111,6 +111,7 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
 def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50):
     messages = (db.query(models.Message)
                .filter(models.Message.channel_id == channel_id)
+               .options(joinedload(models.Message.user))
                .order_by(models.Message.created_at.desc())
                .offset(skip)
                .limit(limit + 1)  # Get one extra to check if there are more
@@ -247,6 +248,22 @@ def leave_channel(db: Session, channel_id: int, user_id: int):
     
     # Remove user from channel
     return remove_channel_member(db, channel_id, user_id)
+
+def update_user_bio(db: Session, user_id: int, bio: str):
+    db_user = get_user(db, user_id)
+    if db_user:
+        db_user.bio = bio
+        db.commit()
+        db.refresh(db_user)
+    return db_user
+
+def update_user_name(db: Session, user_id: int, name: str):
+    db_user = get_user(db, user_id)
+    if db_user:
+        db_user.name = name
+        db.commit()
+        db.refresh(db_user)
+    return db_user
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 
