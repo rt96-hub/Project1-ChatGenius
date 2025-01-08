@@ -13,15 +13,6 @@ TODO List:
 5. AI summarizes channel conversations
    - Add AI to summarize channel conversations, "summary of last x days"
 
-6. channel permissions and roles
-   - channel popout ui window (members, leave, invite, edit name/description, delete channel)
-   - view users in a channel
-   - leave channel
-   - make channels public/private
-   - add/remove users to channels
-   - Add channel permissions and roles
-   - Add UI for channel permissions and roles
-
 8. add user profile
    - Add user profile page
    - name, avatar, bio, email, mutual channels
@@ -37,9 +28,10 @@ TODO List:
 14. add a "leave channel" button to the channel page
 15. confirm delete channel dialog instead of browser alert
 16. pin channels and dms
+19. Channel_members table to add roles_id, with a roles table to add permissions (owner, admin, member)
 17. media and file uploads (media table, media_messages table, message text can be blank if media is present)
 18. Multitenancy???
-
+20. fix channel invite codes, also invite to channel from user profile
 
 18. test skipping channel message requests skip pages
 19. check the frequency of requests to the server, seems like some are being sent more than once, scrolling, login, auth/verify

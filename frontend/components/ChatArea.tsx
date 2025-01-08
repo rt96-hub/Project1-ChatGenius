@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
+import { PaperAirplaneIcon, UsersIcon } from '@heroicons/react/24/outline';
 import ChannelHeader from './ChannelHeader';
 import ChatMessage from './ChatMessage';
+import MemberListModal from './MemberListModal';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useApi } from '@/hooks/useApi';
+import type { Channel, ChannelRole } from '../types/channel';
 
 interface ChatAreaProps {
   channelId: number | null;
@@ -20,14 +22,9 @@ interface Message {
   user?: {
     id: number;
     email: string;
+    name: string;
+    picture?: string;
   };
-}
-
-interface Channel {
-  id: number;
-  name: string;
-  description: string | null;
-  owner_id: number;
 }
 
 export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }: ChatAreaProps) {
@@ -39,6 +36,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [skip, setSkip] = useState(0);
+  const [showMembers, setShowMembers] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -101,6 +99,36 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
               if (onChannelUpdate) {
                 onChannelUpdate();
               }
+              break;
+            case 'member_joined':
+              setChannel(prev => prev ? {
+                ...prev,
+                users: [...prev.users, data.user],
+                member_count: prev.member_count + 1
+              } : null);
+              break;
+            case 'member_left':
+              setChannel(prev => prev ? {
+                ...prev,
+                users: prev.users.filter(u => u.id !== data.user_id),
+                member_count: prev.member_count - 1
+              } : null);
+              break;
+            case 'role_updated':
+              setChannel(prev => prev ? {
+                ...prev,
+                users: prev.users.map(u => 
+                  u.id === data.user_id 
+                    ? { ...u, role: data.role }
+                    : u
+                )
+              } : null);
+              break;
+            case 'privacy_updated':
+              setChannel(prev => prev ? {
+                ...prev,
+                is_private: data.is_private
+              } : null);
               break;
           }
         }
@@ -261,6 +289,48 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     setMessages(prev => prev.filter(msg => msg.id !== messageId));
   };
 
+  const handleUpdateMemberRole = async (userId: number, role: ChannelRole) => {
+    if (!channel) return;
+    try {
+      await api.put(`/channels/${channel.id}/roles/${userId}`, { role });
+    } catch (error) {
+      console.error('Failed to update member role:', error);
+    }
+  };
+
+  const handleRemoveMember = async (userId: number) => {
+    if (!channel) return;
+    try {
+      await api.delete(`/channels/${channel.id}/members/${userId}`);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+    }
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!channel) return;
+    try {
+      await api.post(`/channels/${channel.id}/invite`);
+      if (onChannelUpdate) {
+        onChannelUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to generate invite:', error);
+    }
+  };
+
+  const handleLeaveChannel = async () => {
+    if (!channel) return;
+    try {
+      await api.post(`/channels/${channel.id}/leave`);
+      if (onChannelDelete) {
+        onChannelDelete();
+      }
+    } catch (error) {
+      console.error('Failed to leave channel:', error);
+    }
+  };
+
   if (!channelId) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white text-gray-500">
@@ -270,50 +340,79 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {channel && currentUserId && (
-        <ChannelHeader
-          channel={channel}
-          currentUserId={currentUserId}
-          onChannelUpdate={handleChannelUpdate}
-          onChannelDelete={handleChannelDelete}
-        />
-      )}
-      <div 
-        id="scrollableDiv"
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-        style={{ height: 'calc(100vh - 180px)' }}
-      >
-        {messages.map((message) => (
-          <ChatMessage
-            key={message.id}
-            message={message}
-            currentUserId={currentUserId || 0}
-            channelId={channelId || 0}
-            onMessageUpdate={handleMessageUpdate}
-            onMessageDelete={handleMessageDelete}
+    <div className="flex h-full">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {channel && currentUserId && (
+          <ChannelHeader
+            channel={channel}
+            currentUserId={currentUserId}
+            onChannelUpdate={onChannelUpdate || (() => {})}
+            onChannelDelete={onChannelDelete}
+            onUpdateMemberRole={handleUpdateMemberRole}
+            onRemoveMember={handleRemoveMember}
+            onGenerateInvite={handleGenerateInvite}
+            onToggleMembers={() => setShowMembers(!showMembers)}
+            showMembers={showMembers}
           />
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="flex-none border-t border-gray-200 p-4 bg-white">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:border-blue-500"
-          />
-          <button
-            type="submit"
-            className="flex-none p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
-            disabled={!newMessage.trim()}
+        )}
+        <div className="flex-1">
+          <div 
+            id="scrollableDiv"
+            ref={messagesContainerRef}
+            className="h-full overflow-y-auto p-4 space-y-4"
+            style={{ height: 'calc(100vh - 180px)' }}
           >
-            <PaperAirplaneIcon className="h-5 w-5" />
-          </button>
-        </form>
+            {messages.map((message) => (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                currentUserId={currentUserId || 0}
+                channelId={channelId}
+                onMessageUpdate={handleMessageUpdate}
+                onMessageDelete={handleMessageDelete}
+              />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+        <div className="flex-none border-t border-gray-200 p-4 bg-white">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:border-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowMembers(!showMembers)}
+              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+              title={showMembers ? "Hide Members" : "Show Members"}
+            >
+              <UsersIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="submit"
+              className="flex-none p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+              disabled={!newMessage.trim()}
+            >
+              <PaperAirplaneIcon className="h-5 w-5" />
+            </button>
+          </form>
+        </div>
+
+        {channel && currentUserId && (
+          <MemberListModal
+            isOpen={showMembers}
+            onClose={() => setShowMembers(false)}
+            channel={channel}
+            currentUserId={currentUserId}
+            onUpdateMemberRole={handleUpdateMemberRole}
+            onRemoveMember={handleRemoveMember}
+            onLeaveChannel={handleLeaveChannel}
+          />
+        )}
       </div>
     </div>
   );

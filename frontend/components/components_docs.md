@@ -169,14 +169,24 @@ interface ChatMessageProps {
     }
     ```
 
-### ChannelHeader.tsx
-**Purpose**: Displays channel information and actions.
+### ChannelHeader Component
+The `ChannelHeader` component displays the channel information at the top of a channel view. It shows:
+- Channel name with privacy indicator (# for public, 🔒 for private)
+- Channel description (if any)
+- Member count with toggle button
+- Settings button (opens ChannelSettingsModal)
+- Leave channel button (for non-owners)
 
-**Features**:
-- Channel name and description
-- Member count
-- Channel settings for owners
-- Action buttons
+Props:
+- `channel`: Channel object containing channel details
+- `currentUserId`: ID of the current user
+- `onChannelUpdate`: Callback when channel is updated
+- `onChannelDelete`: Optional callback when channel is deleted
+- `onUpdateMemberRole`: Callback to update a member's role
+- `onRemoveMember`: Callback to remove a member
+- `onGenerateInvite`: Callback to generate invite code
+- `onToggleMembers`: Callback to toggle members list visibility
+- `showMembers`: Boolean indicating if members list is visible
 
 ### AuthButton.tsx
 **Purpose**: Authentication control component.
@@ -339,3 +349,78 @@ Components implement consistent error handling patterns:
 - User feedback for actions
 - Fallback UI states
 - Network error recovery 
+
+## Channel Management Components
+
+### ConfirmDialog
+A reusable confirmation dialog component for destructive actions.
+
+**Props:**
+- `isOpen`: boolean - Controls the visibility of the dialog
+- `onClose`: () => void - Handler for closing the dialog
+- `onConfirm`: () => void - Handler for confirming the action
+- `title`: string - Dialog title
+- `message`: string - Dialog message
+- `confirmText`: string (optional) - Text for confirm button (default: "Confirm")
+- `cancelText`: string (optional) - Text for cancel button (default: "Cancel")
+- `type`: 'danger' | 'warning' (optional) - Style variant (default: "danger")
+
+### MembersList
+Displays a list of channel members with their roles and actions.
+
+**Props:**
+- `members`: ChannelMember[] - Array of channel members
+- `currentUserId`: number - ID of the current user
+- `isOwner`: boolean - Whether the current user is the channel owner
+- `onUpdateRole`: (userId: number, role: ChannelRole) => void - Handler for updating member roles
+- `onRemoveMember`: (userId: number) => void - Handler for removing members
+
+### ChannelInvite
+Component for generating and displaying channel invite codes.
+
+**Props:**
+- `channelId`: number - ID of the channel
+- `joinCode`: string | null - Current invite code
+- `onGenerateInvite`: () => void - Handler for generating new invite codes
+
+### ChannelSettingsModal Component
+The `ChannelSettingsModal` component provides a modal interface for managing channel settings. It includes:
+
+Tabs:
+1. General
+   - Channel name editing (owner only)
+   - Channel description editing (owner only)
+   - Channel deletion option (owner only)
+2. Privacy
+   - Private/Public toggle
+   - Invite code management (for private channels)
+3. Members
+   - Member list management
+   - Role updates
+   - Member removal
+
+Features:
+- Real-time updates for channel name and description (saves on blur)
+- Confirmation dialog for channel deletion
+- API integration for all channel operations
+
+Props:
+- `isOpen`: Boolean to control modal visibility
+- `onClose`: Callback to close the modal
+- `channel`: Channel object containing channel details
+- `currentUserId`: ID of the current user
+- `onUpdateChannel`: Callback when channel is updated
+- `onUpdateMemberRole`: Callback to update a member's role
+- `onRemoveMember`: Callback to remove a member
+- `onGenerateInvite`: Callback to generate invite code
+- `onDeleteChannel`: Callback when channel is deleted
+
+API Endpoints Used:
+- PUT `/channels/{id}` - Update channel details
+- DELETE `/channels/{id}` - Delete channel
+- POST `/channels/{id}/leave` - Leave channel
+
+**Dependencies:**
+- @headlessui/react for modal and tabs components
+- @heroicons/react for icons
+- TailwindCSS for styling 
