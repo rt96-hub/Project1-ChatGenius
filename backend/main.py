@@ -136,6 +136,31 @@ class ConnectionManager:
         }
         await self.broadcast_to_channel(message, channel_id)
 
+    async def broadcast_channel_created(self, channel: models.Channel):
+        """Broadcast channel creation event to all members of the channel."""
+        message = {
+            "type": "channel_created",
+            "channel": {
+                "id": channel.id,
+                "name": channel.name,
+                "description": channel.description,
+                "owner_id": channel.owner_id,
+                "created_at": channel.created_at.isoformat(),
+                "is_private": channel.is_private,
+                "is_dm": channel.is_dm,
+                "join_code": channel.join_code,
+                "users": [
+                    {
+                        "id": user.id,
+                        "email": user.email,
+                        "name": user.name,
+                        "picture": user.picture
+                    } for user in channel.users
+                ]
+            }
+        }
+        await self.broadcast_to_channel(message, channel.id)
+
 manager = ConnectionManager()
 
 # Auth endpoints
@@ -908,6 +933,9 @@ async def create_dm_endpoint(
     manager.add_channel_for_user(current_user.id, db_channel.id)
     for user_id in dm.user_ids:
         manager.add_channel_for_user(user_id, db_channel.id)
+    
+    # Broadcast channel creation event
+    await manager.broadcast_channel_created(db_channel)
     
     # Broadcast to all users that they've been added to the DM
     for user in db_channel.users:

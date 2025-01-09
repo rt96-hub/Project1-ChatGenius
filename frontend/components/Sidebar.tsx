@@ -78,6 +78,13 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
                         )
                     );
                 }
+            } else if (data.type === 'channel_created' && data.channel.is_dm) {
+                setDmChannels(prevDms => {
+                    const exists = prevDms.some(dm => dm.id === data.channel.id);
+                    if (exists) return prevDms;
+                    
+                    return [data.channel, ...prevDms].slice(0, 5);
+                });
             }
         });
 

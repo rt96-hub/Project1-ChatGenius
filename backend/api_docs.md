@@ -802,7 +802,38 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-2. **Message Update**
+2. **Channel Created**
+```json
+{
+    "type": "channel_created",
+    "channel": {
+        "id": 1,
+        "name": "dm-user1-user2",
+        "description": "Direct Message Channel",
+        "owner_id": 1,
+        "created_at": "2024-01-07T12:00:00Z",
+        "is_private": true,
+        "is_dm": true,
+        "join_code": null,
+        "users": [
+            {
+                "id": 1,
+                "email": "user1@example.com",
+                "name": "User One",
+                "picture": "https://example.com/picture1.jpg"
+            },
+            {
+                "id": 2,
+                "email": "user2@example.com",
+                "name": "User Two",
+                "picture": "https://example.com/picture2.jpg"
+            }
+        ]
+    }
+}
+```
+
+3. **Message Update**
 ```json
 {
     "type": "message_update",
@@ -825,7 +856,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-3. **Message Delete**
+4. **Message Delete**
 ```json
 {
     "type": "message_delete",
@@ -834,7 +865,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-4. **Channel Update**
+5. **Channel Update**
 ```json
 {
     "type": "channel_update",
@@ -850,7 +881,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-5. **Member Joined**
+6. **Member Joined**
 ```json
 {
     "type": "member_joined",
@@ -864,7 +895,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-6. **Member Left**
+7. **Member Left**
 ```json
 {
     "type": "member_left",
@@ -873,7 +904,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-7. **Role Updated**
+8. **Role Updated**
 ```json
 {
     "type": "role_updated",
@@ -883,7 +914,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-8. **Privacy Updated**
+9. **Privacy Updated**
 ```json
 {
     "type": "privacy_updated",
@@ -892,7 +923,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-9. **Add Reaction**
+10. **Add Reaction**
 ```json
 {
     "type": "message_reaction_add",
@@ -913,7 +944,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-10. **Remove Reaction**
+11. **Remove Reaction**
 ```json
 {
     "type": "message_reaction_remove",
