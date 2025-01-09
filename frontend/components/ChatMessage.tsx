@@ -92,13 +92,16 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
       
       const updatedMessage = {
         ...message,
-        reactions: (message.reactions || []).filter(r => r.reaction_id !== reactionId)
+        reactions: (message.reactions || []).filter(r => 
+          // Keep reactions that either have a different reaction_id OR are from a different user
+          r.reaction_id !== reactionId || r.user_id !== currentUserId
+        )
       };
       onMessageUpdate(updatedMessage);
     } catch (error) {
       console.error('Failed to remove reaction:', error);
     }
-  }, [api, channelId, message, onMessageUpdate]);
+  }, [api, channelId, message, onMessageUpdate, currentUserId]);
 
   const handleEmojiSelectorClose = useCallback(() => {
     setShowEmojiSelector(false);
