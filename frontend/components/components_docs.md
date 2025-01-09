@@ -12,6 +12,8 @@ This document provides a comprehensive overview of the components used in the fr
 - Infinite scroll for message history
 - Message sending functionality
 - Channel information display
+- Reaction management
+- Member list integration
 
 **Props**:
 ```typescript
@@ -22,75 +24,62 @@ interface ChatAreaProps {
 }
 ```
 
-**Data Flow**:
-- Incoming:
-  - Channel messages via WebSocket and REST API
-  - Channel details from `/channels/{channelId}`
-  - User information from `/users/me`
-- Outgoing:
-  - New messages via WebSocket (fallback to HTTP POST)
-  - Message updates and deletions
+**WebSocket Events**:
+- `new_message`: Received when a new message is sent
+- `message_update`: Received when a message is edited
+- `message_delete`: Received when a message is deleted
+- `message_reaction_add`: Received when a reaction is added
+- `message_reaction_remove`: Received when a reaction is removed
+- `channel_update`: Received when channel details are updated
+- `member_joined`: Received when a new member joins
+- `member_left`: Received when a member leaves
+- `role_updated`: Received when a member's role changes
+- `privacy_updated`: Received when channel privacy changes
 
-**Key Functions**:
-- `fetchMessages`: Loads message history with pagination
-- `handleSendMessage`: Sends new messages through WebSocket/HTTP
-- `loadMoreMessages`: Implements infinite scroll functionality
-
-**API Interactions**:
+**API Endpoints**:
 - GET `/channels/{channelId}/messages`
-  - Request Parameters:
-    ```typescript
-    {
-      skip: number;  // Pagination offset
-      limit: number; // Number of messages to fetch (default: 50)
-    }
-    ```
-  - Response:
-    ```typescript
-    {
-      messages: Message[];
-      has_more: boolean;
-    }
-    ```
-
+  ```typescript
+  // Request Parameters
+  {
+    skip: number;  // Pagination offset
+    limit: number; // Number of messages to fetch (default: 50)
+  }
+  // Response
+  {
+    messages: Message[];
+    has_more: boolean;
+  }
+  ```
 - GET `/channels/{channelId}`
-  - Response:
-    ```typescript
-    {
-      id: number;
-      name: string;
-      description: string | null;
-      owner_id: number;
-    }
-    ```
-
-- GET `/users/me`
-  - Response:
-    ```typescript
-    {
-      id: number;
-      email: string;
-      name?: string;
-    }
-    ```
-
-- POST `/channels/{channelId}/messages` (HTTP fallback)
-  - Request Body:
-    ```typescript
-    {
-      content: string;
-    }
-    ```
-  - Response: Message object
+  ```typescript
+  // Response
+  {
+    id: number;
+    name: string;
+    description: string | null;
+    owner_id: number;
+    is_private: boolean;
+    member_count: number;
+    users: User[];
+  }
+  ```
+- POST `/channels/{channelId}/messages`
+  ```typescript
+  // Request Body
+  {
+    content: string;
+  }
+  // Response: Message object
+  ```
 
 ### ChatMessage.tsx
 **Purpose**: Individual message component handling display and message actions.
 
 **Key Features**:
-- Message content display
+- Message content display with markdown support
 - Edit/Delete functionality for message owners
-- Timestamp display
-- Visual feedback on hover
+- Timestamp display with edit indicator
+- User avatar and profile link
 - Emoji reactions with counter
 - Reaction management (add/remove)
 
@@ -105,254 +94,239 @@ interface ChatMessageProps {
 }
 ```
 
-**API Interactions**:
+**API Endpoints**:
 - PUT `/channels/{channelId}/messages/{messageId}`
-  - Request Body:
-    ```typescript
-    {
-      content: string;
-    }
-    ```
-  - Response: Updated Message object
-
+  ```typescript
+  // Request Body
+  {
+    content: string;
+  }
+  // Response: Updated Message object
+  ```
 - DELETE `/channels/{channelId}/messages/{messageId}`
-  - Response: Status 200 on success
-
+  ```typescript
+  // Response: Status 200 on success
+  ```
 - POST `/channels/{channelId}/messages/{messageId}/reactions`
-  - Request Body:
-    ```typescript
-    {
-      reaction_id: number;
-    }
-    ```
-  - Response: New Reaction object
-
+  ```typescript
+  // Request Body
+  {
+    reaction_id: number;
+  }
+  // Response: New Reaction object
+  ```
 - DELETE `/channels/{channelId}/messages/{messageId}/reactions/{reactionId}`
-  - Response: Status 200 on success
+  ```typescript
+  // Response: Status 200 on success
+  ```
 
-### Sidebar.tsx
-**Purpose**: Navigation component showing channels and direct messages.
-
-**Features**:
-- Channel list display
-- Direct message conversations
-- Channel creation interface
-- Navigation between different chat spaces
-
-### ProtectedRoute.tsx
-**Purpose**: Authentication wrapper component for protected routes.
-
-**Features**:
-- Route protection based on authentication status
-- Redirect to login for unauthenticated users
-- Loading state handling during auth check
-
-### Header.tsx
-**Purpose**: Application header with navigation and user controls.
-
-**Features**:
-- User profile display
-- Navigation menu
-- Authentication status
-- App branding
-
-### CreateChannelModal.tsx
-**Purpose**: Modal component for creating new channels.
-
-**Features**:
-- Channel creation form
-- Validation
-- Success/Error handling
-
-**API Interactions**:
-- POST `/channels`
-  - Request Body:
-    ```typescript
-    {
-      name: string;
-      description?: string;
-    }
-    ```
-  - Response:
-    ```typescript
-    {
-      id: number;
-      name: string;
-      description: string | null;
-      owner_id: number;
-    }
-    ```
-
-### ChannelHeader Component
-The `ChannelHeader` component displays the channel information at the top of a channel view. It shows:
-- Channel name with privacy indicator (# for public, 🔒 for private)
-- Channel description (if any)
-- Member count with toggle button
-- Settings button (opens ChannelSettingsModal)
-- Leave channel button (for non-owners)
-
-Props:
-- `channel`: Channel object containing channel details
-- `currentUserId`: ID of the current user
-- `onChannelUpdate`: Callback when channel is updated
-- `onChannelDelete`: Optional callback when channel is deleted
-- `onUpdateMemberRole`: Callback to update a member's role
-- `onRemoveMember`: Callback to remove a member
-- `onGenerateInvite`: Callback to generate invite code
-- `onToggleMembers`: Callback to toggle members list visibility
-- `showMembers`: Boolean indicating if members list is visible
-
-### AuthButton.tsx
-**Purpose**: Authentication control component.
-
-**Features**:
-- Login/Logout functionality
-- Authentication state display
-- OAuth integration
-
-### SignupForm.tsx
-**Purpose**: User registration form component.
-
-**Features**:
-- User registration form
-- Input validation
-- Error handling
-- Success feedback
-
-**API Interactions**:
-- POST `/register`
-  - Request Body:
-    ```typescript
-    {
-      email: string;
-      password: string;
-    }
-    ```
-  - Response:
-    ```typescript
-    {
-      id: number;
-      email: string;
-    }
-    ```
-
-- POST `/token` (Auto-login after signup)
-  - Request Body (x-www-form-urlencoded):
-    ```
-    username: string;
-    password: string;
-    ```
-  - Response:
-    ```typescript
-    {
-      access_token: string;
-      token_type: string;
-    }
-    ```
-
-### LoginForm.tsx
-**Purpose**: User login form component.
-
-**Features**:
-- Login form
-- Credential validation
-- Error display
-- OAuth options
-
-**API Interactions**:
-- POST `/auth/login`
-  - Request Body:
-    ```typescript
-    {
-      email: string;
-      password: string;
-    }
-    ```
-  - Response:
-    ```typescript
-    {
-      access_token: string;
-      token_type: string;
-    }
-    ```
-
-### ProfileStatus.tsx
-**Purpose**: User profile status display and management.
-
-**Features**:
-- Status display
-- Status update interface
-- Online/Offline indication
-
-**API Interactions**:
-- PUT `/users/status`
-  - Request Body:
-    ```typescript
-    {
-      status: string;
-      status_emoji?: string;
-    }
-    ```
-  - Response:
-    ```typescript
-    {
-      id: number;
-      status: string;
-      status_emoji: string | null;
-      updated_at: string;
-    }
-    ```
-
-### UserProfilePopout.tsx
-**Purpose**: Modal component for displaying and editing user profiles.
+### ChannelHeader.tsx
+**Purpose**: Displays channel information and provides channel management controls.
 
 **Key Features**:
-- Display user profile information (name, email, bio, profile picture)
-- Edit functionality for user's own profile
-- View-only mode for other users' profiles
-- Responsive design with mobile support
-- Loading states and error handling
+- Channel name with privacy indicator (# for public, 🔒 for private)
+- Channel description display
+- Member count with toggle button
+- Channel settings access for owners
+- Integration with ChannelSettingsModal
+
+**Props**:
+```typescript
+interface ChannelHeaderProps {
+  channel: Channel;
+  currentUserId: number;
+  onChannelUpdate: () => void;
+  onChannelDelete?: () => void;
+  onUpdateMemberRole: (userId: number, role: ChannelRole) => void;
+  onRemoveMember: (userId: number) => void;
+  onGenerateInvite: () => void;
+  onToggleMembers: () => void;
+  showMembers: boolean;
+}
+```
+
+### EmojiSelector.tsx
+**Purpose**: Popup component for selecting emoji reactions.
+
+**Key Features**:
+- Displays available emoji reactions
+- Handles emoji selection
+- Click-outside detection for closing
+- Loading state while fetching reactions
+- Support for both system emojis and custom image-based reactions
+
+**Props**:
+```typescript
+interface EmojiSelectorProps {
+  onSelect: (reactionId: number) => void;
+  onClose: () => void;
+  position: { top: number; left: number };
+}
+```
+
+**API Endpoints**:
+- GET `/reactions/`
+  ```typescript
+  // Response
+  {
+    id: number;
+    code: string;
+    is_system: boolean;
+    image_url: string | null;
+    created_at: string;
+  }[]
+  ```
+
+### UserProfilePopout.tsx
+**Purpose**: Displays and manages user profile information.
+
+**Key Features**:
+- Display user profile information
+- Profile picture display
+- User status management
+- Integration with Auth0 user metadata
 
 **Props**:
 ```typescript
 interface UserProfilePopoutProps {
-  user: {
-    id: number;
-    email: string;
-    name: string;
-    picture?: string;
-    bio?: string;
-  };
-  isCurrentUser: boolean;
+  user: Auth0User;
   onClose: () => void;
   onUpdateProfile?: (updates: { name?: string; bio?: string }) => Promise<void>;
 }
 ```
 
-**States**:
-- `isEditing`: Boolean to toggle between view and edit modes
-- `name`: String for edited name value
-- `bio`: String for edited bio value
-- `isLoading`: Boolean for loading state during profile updates
-- `error`: String for error messages
+### ProfileStatus.tsx
+**Purpose**: Shows user status and provides access to profile management.
 
-**Key Functions**:
-- `handleSubmit`: Handles form submission for profile updates
-- `setIsEditing`: Toggles between view and edit modes
-- `onClose`: Closes the profile popout
-- `onUpdateProfile`: Callback for profile updates
+**Key Features**:
+- User status indicator
+- Profile picture display
+- Click to open UserProfilePopout
+- Connection status display
 
-**Usage Example**:
+**Props**:
 ```typescript
-<UserProfilePopout
-  user={currentUser}
-  isCurrentUser={true}
-  onClose={() => setShowProfile(false)}
-  onUpdateProfile={async (updates) => {
-    // Handle profile update logic
-  }}
-/>
+interface ProfileStatusProps {
+  user: Auth0User;
+  connectionStatus: ConnectionStatus;
+  onProfileUpdate?: (updates: { name?: string; bio?: string }) => Promise<void>;
+}
 ```
+
+### ChannelSettingsModal.tsx
+**Purpose**: Modal interface for managing channel settings.
+
+**Key Features**:
+- Channel name and description editing
+- Privacy settings management
+- Member role management
+- Invite code generation
+- Channel deletion option
+
+**Props**:
+```typescript
+interface ChannelSettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  channel: Channel;
+  currentUserId: number;
+  onUpdateChannel: () => void;
+  onUpdateMemberRole: (userId: number, role: ChannelRole) => void;
+  onRemoveMember: (userId: number) => void;
+  onGenerateInvite: () => void;
+  onDeleteChannel: () => void;
+}
+```
+
+**API Endpoints**:
+- PUT `/channels/{id}`
+  ```typescript
+  // Request Body
+  {
+    name?: string;
+    description?: string;
+    is_private?: boolean;
+  }
+  // Response: Updated Channel object
+  ```
+- DELETE `/channels/{id}`
+  ```typescript
+  // Response: Status 200 on success
+  ```
+- POST `/channels/{id}/invite`
+  ```typescript
+  // Response
+  {
+    code: string;
+    expires_at: string;
+  }
+  ```
+
+### MembersList.tsx
+**Purpose**: Displays and manages channel members.
+
+**Key Features**:
+- List of channel members with roles
+- Role management for channel owners
+- Member removal functionality
+- Online status indicators
+
+**Props**:
+```typescript
+interface MembersListProps {
+  members: ChannelMember[];
+  currentUserId: number;
+  isOwner: boolean;
+  onUpdateRole: (userId: number, role: ChannelRole) => void;
+  onRemoveMember: (userId: number) => void;
+}
+```
+
+### ConfirmDialog.tsx
+**Purpose**: Reusable confirmation dialog for destructive actions.
+
+**Props**:
+```typescript
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  type?: 'danger' | 'warning';
+}
+```
+
+### AuthButton.tsx
+**Purpose**: Authentication control component using Auth0.
+
+**Key Features**:
+- Login/Logout functionality
+- Authentication state display
+- Integration with Auth0's Universal Login
+
+### CreateChannelModal.tsx
+**Purpose**: Modal for creating new channels.
+
+**Key Features**:
+- Channel creation form
+- Privacy settings
+- Description field
+- Validation
+
+**API Endpoints**:
+- POST `/channels`
+  ```typescript
+  // Request Body
+  {
+    name: string;
+    description?: string;
+    is_private?: boolean;
+  }
+  // Response: New Channel object
+  ```
 
 ## Data Models
 
@@ -362,14 +336,11 @@ interface Message {
   id: number;
   content: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   user_id: number;
   channel_id: number;
-  user?: {
-    id: number;
-    email: string;
-    name?: string;
-  };
+  user?: User;
+  reactions?: Reaction[];
 }
 ```
 
@@ -380,17 +351,41 @@ interface Channel {
   name: string;
   description: string | null;
   owner_id: number;
+  is_private: boolean;
+  member_count: number;
+  users: User[];
 }
 ```
 
-## WebSocket Events
+### User Interface
+```typescript
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  picture?: string;
+  bio?: string;
+}
+```
 
-The application uses WebSocket for real-time updates with the following events:
-
-- `new_message`: Received when a new message is sent
-- `message_update`: Received when a message is edited
-- `message_delete`: Received when a message is deleted
-- `channel_update`: Received when channel details are updated
+### Reaction Interface
+```typescript
+interface Reaction {
+  id: number;
+  message_id: number;
+  reaction_id: number;
+  user_id: number;
+  created_at: string;
+  code?: string;
+  reaction: {
+    id: number;
+    code: string;
+    is_system: boolean;
+    image_url: string | null;
+  };
+  user: User;
+}
+```
 
 ## Context Usage
 
@@ -414,117 +409,3 @@ Components implement consistent error handling patterns:
 - User feedback for actions
 - Fallback UI states
 - Network error recovery 
-
-## Channel Management Components
-
-### ConfirmDialog
-A reusable confirmation dialog component for destructive actions.
-
-**Props:**
-- `isOpen`: boolean - Controls the visibility of the dialog
-- `onClose`: () => void - Handler for closing the dialog
-- `onConfirm`: () => void - Handler for confirming the action
-- `title`: string - Dialog title
-- `message`: string - Dialog message
-- `confirmText`: string (optional) - Text for confirm button (default: "Confirm")
-- `cancelText`: string (optional) - Text for cancel button (default: "Cancel")
-- `type`: 'danger' | 'warning' (optional) - Style variant (default: "danger")
-
-### MembersList
-Displays a list of channel members with their roles and actions.
-
-**Props:**
-- `members`: ChannelMember[] - Array of channel members
-- `currentUserId`: number - ID of the current user
-- `isOwner`: boolean - Whether the current user is the channel owner
-- `onUpdateRole`: (userId: number, role: ChannelRole) => void - Handler for updating member roles
-- `onRemoveMember`: (userId: number) => void - Handler for removing members
-
-### ChannelInvite
-Component for generating and displaying channel invite codes.
-
-**Props:**
-- `channelId`: number - ID of the channel
-- `joinCode`: string | null - Current invite code
-- `onGenerateInvite`: () => void - Handler for generating new invite codes
-
-### ChannelSettingsModal Component
-The `ChannelSettingsModal` component provides a modal interface for managing channel settings. It includes:
-
-Tabs:
-1. General
-   - Channel name editing (owner only)
-   - Channel description editing (owner only)
-   - Channel deletion option (owner only)
-2. Privacy
-   - Private/Public toggle
-   - Invite code management (for private channels)
-3. Members
-   - Member list management
-   - Role updates
-   - Member removal
-
-Features:
-- Real-time updates for channel name and description (saves on blur)
-- Confirmation dialog for channel deletion
-- API integration for all channel operations
-
-Props:
-- `isOpen`: Boolean to control modal visibility
-- `onClose`: Callback to close the modal
-- `channel`: Channel object containing channel details
-- `currentUserId`: ID of the current user
-- `onUpdateChannel`: Callback when channel is updated
-- `onUpdateMemberRole`: Callback to update a member's role
-- `onRemoveMember`: Callback to remove a member
-- `onGenerateInvite`: Callback to generate invite code
-- `onDeleteChannel`: Callback when channel is deleted
-
-API Endpoints Used:
-- PUT `/channels/{id}` - Update channel details
-- DELETE `/channels/{id}` - Delete channel
-- POST `/channels/{id}/leave` - Leave channel
-
-**Dependencies:**
-- @headlessui/react for modal and tabs components
-- @heroicons/react for icons
-- TailwindCSS for styling 
-
-### EmojiSelector.tsx
-**Purpose**: Popup component for selecting emoji reactions.
-
-**Key Features**:
-- Displays available emoji reactions
-- Handles emoji selection
-- Click-outside detection for closing
-- Loading state while fetching reactions
-- Support for both system emojis and custom image-based reactions
-
-**Props**:
-```typescript
-interface EmojiSelectorProps {
-  onSelect: (reactionId: number) => void;
-  onClose: () => void;
-  position: { top: number; left: number };
-}
-```
-
-**API Interactions**:
-- GET `/reactions/`
-  - Response:
-    ```typescript
-    {
-      id: number;
-      code: string;
-      is_system: boolean;
-      image_url: string | null;
-      created_at: string;
-    }[]
-    ```
-
-**Implementation Details**:
-- Uses a fixed mapping of emoji codes to actual emoji characters
-- Supports both system emojis and custom uploaded emojis
-- Positioned absolutely based on the trigger button location
-- Implements click-outside detection for better UX
-- Shows loading spinner while fetching available reactions 

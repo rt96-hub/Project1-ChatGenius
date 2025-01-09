@@ -16,6 +16,11 @@ POST /auth/sync
 
 Syncs Auth0 user data with the local database.
 
+**Request Headers:**
+```
+Authorization: Bearer <your_auth0_token>
+```
+
 **Request Body:**
 ```json
 {
@@ -35,7 +40,8 @@ Syncs Auth0 user data with the local database.
     "picture": "https://example.com/picture.jpg",
     "auth0_id": "auth0|123456789",
     "is_active": true,
-    "created_at": "2024-01-07T12:00:00Z"
+    "created_at": "2024-01-07T12:00:00Z",
+    "bio": null
 }
 ```
 
@@ -45,6 +51,11 @@ GET /auth/verify
 ```
 
 Verifies Auth0 token and returns user data.
+
+**Request Headers:**
+```
+Authorization: Bearer <your_auth0_token>
+```
 
 **Response (200 OK):**
 ```json
@@ -57,7 +68,8 @@ Verifies Auth0 token and returns user data.
         "picture": "https://example.com/picture.jpg",
         "auth0_id": "auth0|123456789",
         "is_active": true,
-        "created_at": "2024-01-07T12:00:00Z"
+        "created_at": "2024-01-07T12:00:00Z",
+        "bio": null
     }
 }
 ```
@@ -80,7 +92,10 @@ Returns the currently authenticated user's information.
     "picture": "https://example.com/picture.jpg",
     "auth0_id": "auth0|123456789",
     "is_active": true,
-    "created_at": "2024-01-07T12:00:00Z"
+    "created_at": "2024-01-07T12:00:00Z",
+    "bio": "User's bio text",
+    "channels": [],
+    "messages": []
 }
 ```
 
@@ -105,16 +120,10 @@ Returns a list of users with pagination.
         "picture": "https://example.com/picture1.jpg",
         "auth0_id": "auth0|123456789",
         "is_active": true,
-        "created_at": "2024-01-07T12:00:00Z"
-    },
-    {
-        "id": 2,
-        "email": "user2@example.com",
-        "name": "User Two",
-        "picture": "https://example.com/picture2.jpg",
-        "auth0_id": "auth0|987654321",
-        "is_active": true,
-        "created_at": "2024-01-07T12:00:00Z"
+        "created_at": "2024-01-07T12:00:00Z",
+        "bio": "User's bio text",
+        "channels": [],
+        "messages": []
     }
 ]
 ```
@@ -136,7 +145,9 @@ Returns information about a specific user.
     "auth0_id": "auth0|123456789",
     "is_active": true,
     "created_at": "2024-01-07T12:00:00Z",
-    "bio": "User's bio text"
+    "bio": "User's bio text",
+    "channels": [],
+    "messages": []
 }
 ```
 
@@ -164,7 +175,9 @@ Updates the bio of the currently authenticated user.
     "auth0_id": "auth0|123456789",
     "is_active": true,
     "created_at": "2024-01-07T12:00:00Z",
-    "bio": "New bio text"
+    "bio": "New bio text",
+    "channels": [],
+    "messages": []
 }
 ```
 
@@ -192,7 +205,9 @@ Updates the name of the currently authenticated user.
     "auth0_id": "auth0|123456789",
     "is_active": true,
     "created_at": "2024-01-07T12:00:00Z",
-    "bio": "User's bio text"
+    "bio": "User's bio text",
+    "channels": [],
+    "messages": []
 }
 ```
 
@@ -209,7 +224,9 @@ Creates a new channel.
 ```json
 {
     "name": "general",
-    "description": "General discussion channel"
+    "description": "General discussion channel",
+    "is_private": false,
+    "join_code": null
 }
 ```
 
@@ -221,13 +238,17 @@ Creates a new channel.
     "description": "General discussion channel",
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
+    "is_private": false,
+    "join_code": null,
     "users": [
         {
             "id": 1,
             "email": "user@example.com",
-            "name": "User Name"
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
         }
-    ]
+    ],
+    "messages": []
 }
 ```
 
@@ -251,13 +272,17 @@ Returns all channels the current user is a member of.
         "description": "General discussion channel",
         "owner_id": 1,
         "created_at": "2024-01-07T12:00:00Z",
+        "is_private": false,
+        "join_code": null,
         "users": [
             {
                 "id": 1,
                 "email": "user@example.com",
-                "name": "User Name"
+                "name": "User Name",
+                "picture": "https://example.com/picture.jpg"
             }
-        ]
+        ],
+        "messages": []
     }
 ]
 ```
@@ -277,13 +302,17 @@ Returns information about a specific channel.
     "description": "General discussion channel",
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
+    "is_private": false,
+    "join_code": null,
     "users": [
         {
             "id": 1,
             "email": "user@example.com",
-            "name": "User Name"
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
         }
-    ]
+    ],
+    "messages": []
 }
 ```
 
@@ -298,7 +327,9 @@ Updates a channel's information. Only the channel owner can perform this action.
 ```json
 {
     "name": "updated-general",
-    "description": "Updated general discussion channel"
+    "description": "Updated general discussion channel",
+    "is_private": false,
+    "join_code": null
 }
 ```
 
@@ -310,13 +341,17 @@ Updates a channel's information. Only the channel owner can perform this action.
     "description": "Updated general discussion channel",
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
+    "is_private": false,
+    "join_code": null,
     "users": [
         {
             "id": 1,
             "email": "user@example.com",
-            "name": "User Name"
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
         }
-    ]
+    ],
+    "messages": []
 }
 ```
 
@@ -358,14 +393,16 @@ Creates a new message in a channel.
     "user": {
         "id": 1,
         "email": "user@example.com",
-        "name": "User Name"
-    }
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    },
+    "reactions": []
 }
 ```
 
 ### 2. List Channel Messages
 ```http
-GET /channels/{channel_id}/messages?skip=0&limit=50
+GET /channels/{channel_id}/messages?skip=0&limit=50&include_reactions=true
 ```
 
 Returns messages from a channel with pagination.
@@ -373,6 +410,7 @@ Returns messages from a channel with pagination.
 **Query Parameters:**
 - `skip` (optional): Number of records to skip (default: 0)
 - `limit` (optional): Maximum number of records to return (default: 50)
+- `include_reactions` (optional): Whether to include message reactions (default: false)
 
 **Response (200 OK):**
 ```json
@@ -388,8 +426,10 @@ Returns messages from a channel with pagination.
             "user": {
                 "id": 1,
                 "email": "user@example.com",
-                "name": "User Name"
-            }
+                "name": "User Name",
+                "picture": "https://example.com/picture.jpg"
+            },
+            "reactions": []
         }
     ],
     "total": 1,
@@ -423,8 +463,10 @@ Updates a message's content. Only the message author can perform this action.
     "user": {
         "id": 1,
         "email": "user@example.com",
-        "name": "User Name"
-    }
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    },
+    "reactions": []
 }
 ```
 
@@ -437,341 +479,6 @@ Deletes a message. Only the message author can perform this action.
 
 **Response (200 OK):**
 Returns the deleted message object.
-
-## Reaction Management
-
-### 1. List All Reactions
-```http
-GET /reactions/?skip=0&limit=100
-```
-
-Returns a list of all available reactions with pagination.
-
-**Query Parameters:**
-- `skip` (optional): Number of records to skip (default: 0)
-- `limit` (optional): Maximum number of records to return (default: 100)
-
-**Response (200 OK):**
-```json
-[
-    {
-        "id": 1,
-        "code": "thumbs_up",
-        "is_system": true,
-        "image_url": null,
-        "created_at": "2024-01-08T12:00:00Z"
-    },
-    {
-        "id": 2,
-        "code": "heart",
-        "is_system": true,
-        "image_url": null,
-        "created_at": "2024-01-08T12:00:00Z"
-    }
-]
-```
-
-### 2. Add Reaction to Message
-```http
-POST /channels/{channel_id}/messages/{message_id}/reactions
-```
-
-Adds a reaction to a message. If the user has already added this reaction to this message, returns the existing reaction.
-
-**Request Body:**
-```json
-{
-    "reaction_id": 1
-}
-```
-
-**Response (200 OK):**
-```json
-{
-    "id": 1,
-    "message_id": 1,
-    "reaction_id": 1,
-    "user_id": 1,
-    "created_at": "2024-01-08T12:00:00Z",
-    "reaction": {
-        "id": 1,
-        "code": "thumbs_up",
-        "is_system": true,
-        "image_url": null,
-        "created_at": "2024-01-08T12:00:00Z"
-    },
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "name": "User Name",
-        "picture": "https://example.com/picture.jpg"
-    }
-}
-```
-
-### 3. Remove Reaction from Message
-```http
-DELETE /channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}
-```
-
-Removes a user's reaction from a message.
-
-**Response (200 OK):**
-```json
-{
-    "message": "Reaction removed successfully"
-}
-```
-
-### WebSocket Events for Reactions
-
-1. **Reaction Added**
-```json
-{
-    "type": "message_reaction_add",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction": {
-        "id": 1,
-        "message_id": 1,
-        "reaction_id": 1,
-        "user_id": 1,
-        "created_at": "2024-01-08T12:00:00Z",
-        "reaction": {
-            "id": 1,
-            "code": "thumbs_up",
-            "is_system": true,
-            "image_url": null
-        },
-        "user": {
-            "id": 1,
-            "email": "user@example.com",
-            "name": "User Name",
-            "picture": "https://example.com/picture.jpg"
-        }
-    }
-}
-```
-
-2. **Reaction Removed**
-```json
-{
-    "type": "message_reaction_remove",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction_id": 1,
-    "user_id": 1
-}
-```
-
-## WebSocket Connection
-
-### Connect to WebSocket
-```http
-WS /ws?token=<auth0_token>
-```
-
-Establishes a WebSocket connection for real-time updates.
-
-**Query Parameters:**
-- `token`: Valid Auth0 JWT token
-
-### WebSocket Events
-
-1. **New Message**
-```json
-{
-    "type": "new_message",
-    "channel_id": 1,
-    "content": "Hello, world!"
-}
-
-{
-    "type": "new_message",
-    "channel_id": 1,
-    "message": {
-        "id": 1,
-        "content": "Hello, world!",
-        "created_at": "2024-01-07T12:00:00Z",
-        "user_id": 1,
-        "channel_id": 1,
-        "user": {
-            "id": 1,
-            "email": "user@example.com",
-            "name": "User Name"
-        }
-    }
-}
-```
-
-2. **Add Reaction**
-```json
-{
-    "type": "add_reaction",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction_id": 1
-}
-
-{
-    "type": "message_reaction_add",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction": {
-        "id": 1,
-        "reaction_id": 1,
-        "user_id": 1,
-        "created_at": "2024-01-08T12:00:00Z",
-        "user": {
-            "id": 1,
-            "email": "user@example.com",
-            "name": "User Name",
-            "picture": "https://example.com/picture.jpg"
-        }
-    }
-}
-```
-
-3. **Remove Reaction**
-```json
-{
-    "type": "remove_reaction",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction_id": 1
-}
-
-{
-    "type": "message_reaction_remove",
-    "channel_id": 1,
-    "message_id": 1,
-    "reaction_id": 1,
-    "user_id": 1
-}
-```
-
-4. **Message Update**
-```json
-{
-    "type": "message_update",
-    "channel_id": 1,
-    "message": {
-        "id": 1,
-        "content": "Updated content",
-        "created_at": "2024-01-07T12:00:00Z",
-        "updated_at": "2024-01-07T12:30:00Z",
-        "user_id": 1,
-        "channel_id": 1,
-        "user": {
-            "id": 1,
-            "email": "user@example.com",
-            "name": "User Name"
-        }
-    }
-}
-```
-
-5. **Message Delete**
-```json
-{
-    "type": "message_delete",
-    "channel_id": 1,
-    "message_id": 1
-}
-```
-
-6. **Channel Update**
-```json
-{
-    "type": "channel_update",
-    "channel_id": 1,
-    "channel": {
-        "id": 1,
-        "name": "updated-name",
-        "description": "Updated description",
-        "owner_id": 1
-    }
-}
-```
-
-7. **Member Joined**
-```json
-{
-    "type": "member_joined",
-    "channel_id": 1,
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "name": "User Name",
-        "picture": "https://example.com/picture.jpg"
-    }
-}
-```
-
-8. **Member Left**
-```json
-{
-    "type": "member_left",
-    "channel_id": 1,
-    "user_id": 1
-}
-```
-
-9. **Role Updated**
-```json
-{
-    "type": "role_updated",
-    "channel_id": 1,
-    "user_id": 1,
-    "role": "moderator"
-}
-```
-
-10. **Privacy Updated**
-```json
-{
-    "type": "privacy_updated",
-    "channel_id": 1,
-    "is_private": true
-}
-```
-
-## Error Responses
-
-### 1. Unauthorized (401)
-```json
-{
-    "detail": "Invalid or missing token"
-}
-```
-
-### 2. Forbidden (403)
-```json
-{
-    "detail": "Not enough permissions"
-}
-```
-
-### 3. Not Found (404)
-```json
-{
-    "detail": "Resource not found"
-}
-```
-
-### 4. Bad Request (400)
-```json
-{
-    "detail": "Invalid request"
-}
-```
-
-### 5. Internal Server Error (500)
-```json
-{
-    "detail": "Internal server error"
-}
-```
 
 ## Channel Membership and Roles
 
@@ -788,12 +495,14 @@ Returns a list of users who are members of the channel.
     {
         "id": 1,
         "email": "user1@example.com",
-        "name": "User One"
+        "name": "User One",
+        "picture": "https://example.com/picture1.jpg"
     },
     {
         "id": 2,
         "email": "user2@example.com",
-        "name": "User Two"
+        "name": "User Two",
+        "picture": "https://example.com/picture2.jpg"
     }
 ]
 ```
@@ -841,9 +550,11 @@ Updates a channel's privacy settings. Only the channel owner can perform this ac
         {
             "id": 1,
             "email": "user@example.com",
-            "name": "User Name"
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
         }
-    ]
+    ],
+    "messages": []
 }
 ```
 
@@ -916,5 +627,286 @@ Allows a user to leave a channel. If the user is the owner, ownership will be tr
 ```json
 {
     "message": "Successfully left the channel"
+}
+```
+
+## Reaction Management
+
+### 1. List All Reactions
+```http
+GET /reactions/?skip=0&limit=100
+```
+
+Returns a list of all available reactions with pagination.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 100)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "code": "thumbs_up",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    },
+    {
+        "id": 2,
+        "code": "heart",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    }
+]
+```
+
+### 2. Add Reaction to Message
+```http
+POST /channels/{channel_id}/messages/{message_id}/reactions
+```
+
+Adds a reaction to a message. If the user has already added this reaction to this message, returns the existing reaction.
+
+**Request Body:**
+```json
+{
+    "reaction_id": 1
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "message_id": 1,
+    "reaction_id": 1,
+    "user_id": 1,
+    "created_at": "2024-01-08T12:00:00Z",
+    "code": "thumbs_up",
+    "reaction": {
+        "id": 1,
+        "code": "thumbs_up",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    },
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    }
+}
+```
+
+### 3. Remove Reaction from Message
+```http
+DELETE /channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}
+```
+
+Removes a user's reaction from a message.
+
+**Response (200 OK):**
+```json
+{
+    "message": "Reaction removed successfully"
+}
+```
+
+## WebSocket Connection
+
+### Connect to WebSocket
+```http
+WS /ws?token=<auth0_token>
+```
+
+Establishes a WebSocket connection for real-time updates.
+
+**Query Parameters:**
+- `token`: Valid Auth0 JWT token
+
+### WebSocket Events
+
+1. **New Message**
+```json
+{
+    "type": "new_message",
+    "channel_id": 1,
+    "message": {
+        "id": 1,
+        "content": "Hello, world!",
+        "created_at": "2024-01-07T12:00:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        },
+        "reactions": []
+    }
+}
+```
+
+2. **Message Update**
+```json
+{
+    "type": "message_update",
+    "channel_id": 1,
+    "message": {
+        "id": 1,
+        "content": "Updated content",
+        "created_at": "2024-01-07T12:00:00Z",
+        "updated_at": "2024-01-07T12:30:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        },
+        "reactions": []
+    }
+}
+```
+
+3. **Message Delete**
+```json
+{
+    "type": "message_delete",
+    "channel_id": 1,
+    "message_id": 1
+}
+```
+
+4. **Channel Update**
+```json
+{
+    "type": "channel_update",
+    "channel_id": 1,
+    "channel": {
+        "id": 1,
+        "name": "updated-name",
+        "description": "Updated description",
+        "owner_id": 1,
+        "is_private": false,
+        "join_code": null
+    }
+}
+```
+
+5. **Member Joined**
+```json
+{
+    "type": "member_joined",
+    "channel_id": 1,
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    }
+}
+```
+
+6. **Member Left**
+```json
+{
+    "type": "member_left",
+    "channel_id": 1,
+    "user_id": 1
+}
+```
+
+7. **Role Updated**
+```json
+{
+    "type": "role_updated",
+    "channel_id": 1,
+    "user_id": 1,
+    "role": "moderator"
+}
+```
+
+8. **Privacy Updated**
+```json
+{
+    "type": "privacy_updated",
+    "channel_id": 1,
+    "is_private": true
+}
+```
+
+9. **Add Reaction**
+```json
+{
+    "type": "message_reaction_add",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction": {
+        "id": 1,
+        "reaction_id": 1,
+        "user_id": 1,
+        "created_at": "2024-01-08T12:00:00Z",
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    }
+}
+```
+
+10. **Remove Reaction**
+```json
+{
+    "type": "message_reaction_remove",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction_id": 1,
+    "user_id": 1
+}
+```
+
+## Error Responses
+
+### 1. Unauthorized (401)
+```json
+{
+    "detail": "Invalid or missing token"
+}
+```
+
+### 2. Forbidden (403)
+```json
+{
+    "detail": "Not enough permissions"
+}
+```
+
+### 3. Not Found (404)
+```json
+{
+    "detail": "Resource not found"
+}
+```
+
+### 4. Bad Request (400)
+```json
+{
+    "detail": "Invalid request"
+}
+```
+
+### 5. Internal Server Error (500)
+```json
+{
+    "detail": "Internal server error"
 }
 ``` 

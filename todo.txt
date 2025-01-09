@@ -44,3 +44,6 @@ TODO List:
 
 19. check the frequency of requests to the server, seems like some are being sent more than once, scrolling, login, auth/verify
 
+20. when a user clicks a reaction to remove their own, the other user's reaction is removed visually
+
+21. increase time required for the yellow away status to turn on
