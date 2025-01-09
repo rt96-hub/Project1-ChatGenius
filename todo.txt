@@ -44,6 +44,3 @@ TODO List:
 
 19. check the frequency of requests to the server, seems like some are being sent more than once, scrolling, login, auth/verify
 
-
-20. scroll to bottom when the user sends a message (not when a message is received)
-21. when opening a channel, scroll should start at the bottom, I think this is a problem with the footer or header sizes not being accoutned for in the scroll logic

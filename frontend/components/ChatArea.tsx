@@ -65,6 +65,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentChannelRef = useRef<number | null>(null);
   const { connectionStatus, sendMessage, addMessageListener } = useConnection();
+  const [isUserSentMessage, setIsUserSentMessage] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,8 +109,16 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
         if (data.channel_id === currentChannelRef.current) {
           switch (data.type) {
             case 'new_message':
-              setMessages(prev => [...prev, data.message].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
-              scrollToBottom();
+              setMessages(prev => {
+                const newMessages = [...prev, data.message].sort((a, b) => 
+                  new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+                // If this is a message from the current user, trigger scroll
+                if (data.message.user_id === currentUserId) {
+                  setIsUserSentMessage(true);
+                }
+                return newMessages;
+              });
               break;
             case 'message_update':
               setMessages(prev => prev.map(msg => 
@@ -210,21 +219,36 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
 
   useEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container || messages.length === 0) return;
+    if (!container || messages.length === 0 || !channel) return;
 
-    // On initial load, scroll to bottom
+    // On initial load, wait for next frame to ensure layout is stable
     if (isInitialLoad) {
-      container.scrollTop = container.scrollHeight;
-      setIsInitialLoad(false);
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+          setIsInitialLoad(false);
+        }
+      });
       return;
     }
 
-    // For new messages, only scroll if they're very recent
+    // Scroll to bottom if message was sent by user
+    if (isUserSentMessage) {
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+      setIsUserSentMessage(false);
+      return;
+    }
+
+    // For new messages from others, only scroll if they're very recent
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.created_at > (new Date(Date.now() - 1000).toISOString())) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [messages, isInitialLoad]);
+  }, [messages, isInitialLoad, channel, isUserSentMessage]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -335,6 +359,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
           channel_id: channelId,
           content: messageContent
         });
+        // Note: We don't set isUserSentMessage here anymore, it's handled in the WebSocket listener
       } catch (wsError) {
         console.error('WebSocket send failed:', wsError);
         // If WebSocket fails, fallback to HTTP
@@ -345,9 +370,13 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
         
         // Add the new message to the messages array
         if (response.data) {
-          setMessages(prev => [...prev, response.data].sort((a, b) => 
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          ));
+          setMessages(prev => {
+            const newMessages = [...prev, response.data].sort((a, b) => 
+              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+            setIsUserSentMessage(true); // Set flag after message is added in HTTP fallback
+            return newMessages;
+          });
         }
       }
     } catch (error) {
