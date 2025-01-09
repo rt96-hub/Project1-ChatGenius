@@ -455,7 +455,7 @@ Creates a new message in a channel.
 GET /channels/{channel_id}/messages?skip=0&limit=50&include_reactions=true
 ```
 
-Returns messages from a channel with pagination.
+Returns messages from a channel with pagination. Messages that are replies will include their parent message data.
 
 **Query Parameters:**
 - `skip` (optional): Number of records to skip (default: 0)
@@ -467,25 +467,68 @@ Returns messages from a channel with pagination.
 {
     "messages": [
         {
-            "id": 1,
-            "content": "Hello, world!",
+            "id": 2,
+            "content": "This is a reply",
             "created_at": "2024-01-07T12:00:00Z",
             "updated_at": "2024-01-07T12:00:00Z",
             "user_id": 1,
             "channel_id": 1,
+            "parent_id": 1,
             "user": {
                 "id": 1,
                 "email": "user@example.com",
                 "name": "User Name",
                 "picture": "https://example.com/picture.jpg"
             },
-            "reactions": []
+            "reactions": [],
+            "parent": {
+                "id": 1,
+                "content": "Original message",
+                "created_at": "2024-01-07T11:00:00Z",
+                "updated_at": "2024-01-07T11:00:00Z",
+                "user_id": 2,
+                "channel_id": 1,
+                "parent_id": null,
+                "user": {
+                    "id": 2,
+                    "email": "user2@example.com",
+                    "name": "User Two",
+                    "picture": "https://example.com/picture2.jpg"
+                }
+            }
+        },
+        {
+            "id": 1,
+            "content": "Original message",
+            "created_at": "2024-01-07T11:00:00Z",
+            "updated_at": "2024-01-07T11:00:00Z",
+            "user_id": 2,
+            "channel_id": 1,
+            "parent_id": null,
+            "user": {
+                "id": 2,
+                "email": "user2@example.com",
+                "name": "User Two",
+                "picture": "https://example.com/picture2.jpg"
+            },
+            "reactions": [],
+            "parent": null
         }
     ],
-    "total": 1,
+    "total": 2,
     "has_more": false
 }
 ```
+
+**Notes on Reply Chains:**
+- Messages with `parent_id === null` are original messages
+- Messages with `parent_id !== null` are replies
+- Each message can have at most one reply (enforced by unique constraint)
+- When replying to a message that already has replies, the new reply is automatically attached to the last message in the chain
+- The frontend can reconstruct reply chains by:
+  1. Finding messages with parent_id to identify replies
+  2. Using the parent object to get the original message content and author
+  3. Following parent_id references to build the complete chain
 
 ### 3. Update Message
 ```http
@@ -1137,4 +1180,167 @@ Returns all channels the current user is a member of, ordered by most recent mes
         "messages": []
     }
 ]
+```
+
+### Messages
+
+#### 1. Create Message Reply
+```http
+POST /channels/{channel_id}/messages/{parent_id}/reply
+```
+
+Creates a reply to a message. If the parent message already has a reply, the new message will be attached to the last message in the reply chain.
+
+**Path Parameters:**
+- `channel_id`: ID of the channel containing the parent message
+- `parent_id`: ID of the message to reply to
+
+**Request Body:**
+```json
+{
+    "content": "This is a reply message"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 2,
+    "content": "This is a reply message",
+    "created_at": "2024-01-07T12:00:00Z",
+    "updated_at": "2024-01-07T12:00:00Z",
+    "user_id": 1,
+    "channel_id": 1,
+    "parent_id": 1,
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    },
+    "reactions": [],
+    "parent": {
+        "id": 1,
+        "content": "Original message",
+        "created_at": "2024-01-07T11:00:00Z",
+        "updated_at": "2024-01-07T11:00:00Z",
+        "user_id": 2,
+        "channel_id": 1,
+        "parent_id": null,
+        "user": {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg"
+        }
+    }
+}
+```
+
+**WebSocket Event:**
+When a reply is created, a `message_created` event is broadcast to all users in the channel:
+```json
+{
+    "type": "message_created",
+    "message": {
+        "id": 2,
+        "content": "This is a reply message",
+        "created_at": "2024-01-07T12:00:00Z",
+        "updated_at": "2024-01-07T12:00:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "parent_id": 1,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    }
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Parent message not found in the specified channel
+- `400 Bad Request`: Could not create reply
+
+#### 2. List Channel Messages
+```http
+GET /channels/{channel_id}/messages?skip=0&limit=50&include_reactions=true
+```
+
+Returns messages from a channel with pagination. Messages that are replies will include their parent message data.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 50)
+- `include_reactions` (optional): Whether to include message reactions (default: false)
+
+**Response (200 OK):**
+```json
+{
+    "messages": [
+        {
+            "id": 2,
+            "content": "This is a reply",
+            "created_at": "2024-01-07T12:00:00Z",
+            "updated_at": "2024-01-07T12:00:00Z",
+            "user_id": 1,
+            "channel_id": 1,
+            "parent_id": 1,
+            "user": {
+                "id": 1,
+                "email": "user@example.com",
+                "name": "User Name",
+                "picture": "https://example.com/picture.jpg"
+            },
+            "reactions": [],
+            "parent": {
+                "id": 1,
+                "content": "Original message",
+                "created_at": "2024-01-07T11:00:00Z",
+                "updated_at": "2024-01-07T11:00:00Z",
+                "user_id": 2,
+                "channel_id": 1,
+                "parent_id": null,
+                "user": {
+                    "id": 2,
+                    "email": "user2@example.com",
+                    "name": "User Two",
+                    "picture": "https://example.com/picture2.jpg"
+                }
+            }
+        },
+        {
+            "id": 1,
+            "content": "Original message",
+            "created_at": "2024-01-07T11:00:00Z",
+            "updated_at": "2024-01-07T11:00:00Z",
+            "user_id": 2,
+            "channel_id": 1,
+            "parent_id": null,
+            "user": {
+                "id": 2,
+                "email": "user2@example.com",
+                "name": "User Two",
+                "picture": "https://example.com/picture2.jpg"
+            },
+            "reactions": [],
+            "parent": null
+        }
+    ],
+    "total": 2,
+    "has_more": false
+}
+```
+
+**Notes on Reply Chains:**
+- Messages with `parent_id === null` are original messages
+- Messages with `parent_id !== null` are replies
+- Each message can have at most one reply (enforced by unique constraint)
+- When replying to a message that already has replies, the new reply is automatically attached to the last message in the chain
+- The frontend can reconstruct reply chains by:
+  1. Finding messages with parent_id to identify replies
+  2. Using the parent object to get the original message content and author
+  3. Following parent_id references to build the complete chain
 ``` 

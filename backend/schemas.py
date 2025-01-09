@@ -54,20 +54,25 @@ class MessageReaction(BaseModel):
     class Config:
         orm_mode = True
 
+class MessageReplyCreate(MessageBase):
+    pass
+
 class Message(MessageBase):
     id: int
     created_at: datetime
     updated_at: datetime
     user_id: int
     channel_id: int
+    parent_id: Optional[int] = None
     user: UserInChannel
     reactions: List[MessageReaction] = []
+    parent: Optional['Message'] = None
 
     class Config:
         orm_mode = True
 
 # Update forward references
-Message.update_forward_refs(MessageReaction=MessageReaction)
+Message.update_forward_refs(Message=Message, MessageReaction=MessageReaction)
 MessageReaction.update_forward_refs(Message=Message)
 
 class ChannelBase(BaseModel):

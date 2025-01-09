@@ -52,10 +52,18 @@ class Message(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     user_id = Column(Integer, ForeignKey("users.id"))
     channel_id = Column(Integer, ForeignKey("channels.id"))
+    parent_id = Column(Integer, ForeignKey("messages.id"), unique=True, nullable=True)
 
     user = relationship("User", back_populates="messages")
     channel = relationship("Channel", back_populates="messages")
     reactions = relationship("MessageReaction", back_populates="message")
+    
+    # Add relationships for parent/child messages
+    parent = relationship("Message", remote_side=[id], backref="reply", uselist=False)
+
+    __table_args__ = (
+        sa.UniqueConstraint('parent_id', name='unique_reply_message'),
+    )
 
 class UserChannel(Base):
     __tablename__ = "user_channels"

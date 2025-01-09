@@ -979,6 +979,58 @@ def check_existing_dm_endpoint(
             detail=f"Error checking DM channel: {str(e)}"
         )
 
+@app.post("/channels/{channel_id}/messages/{parent_id}/reply", response_model=schemas.Message)
+async def create_reply_endpoint(
+    channel_id: int,
+    parent_id: int,
+    message: schemas.MessageReplyCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a reply to a message. If the parent message already has a reply,
+    the new message will be attached to the last message in the reply chain."""
+    
+    # Check if parent message exists and is in the specified channel
+    parent_message = crud.get_message(db, parent_id)
+    if not parent_message or parent_message.channel_id != channel_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Parent message not found in this channel"
+        )
+    
+    # Create the reply
+    db_message = crud.create_reply(db, parent_id, current_user.id, message)
+    if not db_message:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not create reply"
+        )
+    
+    # Broadcast the new message to channel members
+    await manager.broadcast_to_channel(
+        {
+            "type": "message_created",
+            "message": {
+                "id": db_message.id,
+                "content": db_message.content,
+                "created_at": db_message.created_at.isoformat(),
+                "updated_at": db_message.updated_at.isoformat(),
+                "user_id": db_message.user_id,
+                "channel_id": db_message.channel_id,
+                "parent_id": db_message.parent_id,
+                "user": {
+                    "id": current_user.id,
+                    "email": current_user.email,
+                    "name": current_user.name,
+                    "picture": current_user.picture
+                }
+            }
+        },
+        channel_id
+    )
+    
+    return db_message
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

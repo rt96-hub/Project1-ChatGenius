@@ -112,7 +112,10 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
 def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50, include_reactions: bool = False):
     query = (db.query(models.Message)
              .filter(models.Message.channel_id == channel_id)
-             .options(joinedload(models.Message.user)))
+             .options(
+                 joinedload(models.Message.user),
+                 joinedload(models.Message.parent).joinedload(models.Message.user)  # Load parent message with its user
+             ))
     
     if include_reactions:
         # Add eager loading for reactions and their related data
@@ -472,6 +475,48 @@ def get_existing_dm_channel(db: Session, user1_id: int, user2_id: int) -> int:
     )
     
     return dm_channel[0] if dm_channel else None
+
+def find_last_reply_in_chain(db: Session, message_id: int) -> models.Message:
+    """
+    Recursively find the last message in a reply chain.
+    Returns the last message that doesn't have a reply.
+    """
+    current_message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not current_message:
+        return None
+    
+    # Follow the reply chain until we find a message with no reply
+    while True:
+        reply = db.query(models.Message).filter(models.Message.parent_id == current_message.id).first()
+        if not reply:
+            return current_message
+        current_message = reply
+
+def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.MessageReplyCreate) -> models.Message:
+    """
+    Create a reply to a message. If the parent message already has a reply,
+    the new message will be attached to the last message in the reply chain.
+    """
+    # First check if parent message exists
+    parent_message = db.query(models.Message).filter(models.Message.id == parent_id).first()
+    if not parent_message:
+        return None
+    
+    # Find the last message in the reply chain
+    last_message = find_last_reply_in_chain(db, parent_id)
+    
+    # Create the new reply message
+    db_message = models.Message(
+        content=message.content,
+        channel_id=parent_message.channel_id,  # Use the same channel as parent
+        user_id=user_id,
+        parent_id=last_message.id  # Set parent_id to the last message in chain
+    )
+    
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

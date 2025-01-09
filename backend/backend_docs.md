@@ -75,7 +75,7 @@ backend/
      - `roles`: One-to-many with ChannelRole
 
 3. `Message`
-   - **Purpose**: Represents chat messages
+   - **Purpose**: Represents chat messages and their replies
    - **Fields**:
      - `id`: Primary key
      - `content`: Message text
@@ -83,10 +83,21 @@ backend/
      - `updated_at`: Last edit timestamp
      - `user_id`: Author's user ID
      - `channel_id`: Channel ID
+     - `parent_id`: ID of the message being replied to (unique, optional)
    - **Relationships**:
      - `user`: Many-to-one with User
      - `channel`: Many-to-one with Channel
      - `reactions`: One-to-many with MessageReaction
+     - `parent`: One-to-one with Message (self-referential for replies)
+     - `reply`: One-to-one back reference to child message
+   - **Constraints**:
+     - Unique constraint on parent_id (ensures one reply per message)
+     - Foreign key constraint from parent_id to messages.id
+   - **Reply Chain Behavior**:
+     - Each message can be replied to once
+     - Replies form a linked list where each reply points to its parent
+     - When replying to a message that already has replies, the new reply is attached to the last message in the chain
+     - The frontend can reconstruct reply chains by following parent_id references
 
 4. `UserChannel`
    - **Purpose**: Association table for user-channel memberships
@@ -192,6 +203,10 @@ backend/
    - Message CRUD operations
    - Message retrieval with pagination
    - Reaction management
+   - Reply chain management:
+     - `find_last_reply_in_chain`: Recursively finds the last message in a reply chain
+     - `create_reply`: Creates a new reply and attaches it to the appropriate parent
+     - `get_channel_messages`: Enhanced to include parent message data for replies
 
 ### 5. `auth0.py`
 **Purpose**: Manages Auth0 authentication and authorization
