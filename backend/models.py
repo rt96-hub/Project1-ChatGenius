@@ -28,12 +28,20 @@ class Channel(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_private = Column(Boolean, default=False)
+    is_dm = Column(Boolean, default=False)
     join_code = Column(String, nullable=True)
 
     messages = relationship("Message", back_populates="channel")
     users = relationship("User", secondary="user_channels", back_populates="channels")
     owner = relationship("User", foreign_keys=[owner_id])
     roles = relationship("ChannelRole", back_populates="channel")
+
+    __table_args__ = (
+        sa.CheckConstraint(
+            'NOT is_dm OR (is_dm AND is_private)',
+            name='dm_must_be_private'
+        ),
+    )
 
 class Message(Base):
     __tablename__ = "messages"

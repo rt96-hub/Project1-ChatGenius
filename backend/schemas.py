@@ -74,10 +74,15 @@ class ChannelBase(BaseModel):
     name: str
     description: Optional[str] = None
     is_private: Optional[bool] = False
+    is_dm: Optional[bool] = False
     join_code: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass
+
+class DMCreate(BaseModel):
+    user_ids: List[int]  # The IDs of users to start a DM with
+    name: Optional[str] = None  # Optional group name for multi-user DMs
 
 class Channel(ChannelBase):
     id: int

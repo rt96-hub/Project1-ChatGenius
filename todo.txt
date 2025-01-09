@@ -27,6 +27,9 @@ TODO List:
 
 13. AI summarize documents of supported file types when they are uploaded, store an AI summary of the document in the database
 14. be careful what the ai knows before it sends messages to other users, if im talking shit about the company or my boss in dms, i dont want it to reveal my secrets to the boss
+15. ai powered search over long channels
+16. global ai bot that can answer anyones questions about the company
+
 
 10. Implement a loading indicator for message pagination in the chat area.
 11. Make the text input field dynamic, so it grows based on the number of lines of text in the input field. and the text input field should be scrollable and wrap text.

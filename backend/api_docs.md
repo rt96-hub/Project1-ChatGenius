@@ -909,4 +909,129 @@ Establishes a WebSocket connection for real-time updates.
 {
     "detail": "Internal server error"
 }
+```
+
+### Create DM Channel
+```http
+POST /channels/dm
+```
+
+Creates a new DM (Direct Message) channel with multiple users. DM channels are always private.
+
+**Request Body:**
+```json
+{
+    "user_ids": [2, 3, 4],  // IDs of users to include in the DM (excluding the creator)
+    "name": "optional-group-name"  // Optional name for group DMs with more than 2 users
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "name": "dm-user1-user2",  // Auto-generated for 2-person DMs
+    "description": "Direct Message Channel",
+    "owner_id": 1,
+    "created_at": "2024-01-07T12:00:00Z",
+    "is_private": true,
+    "is_dm": true,
+    "join_code": null,
+    "users": [
+        {
+            "id": 1,
+            "email": "user1@example.com",
+            "name": "User One",
+            "picture": "https://example.com/picture1.jpg"
+        },
+        {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg"
+        }
+    ],
+    "messages": []
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: If the creator is included in user_ids or if any user ID is invalid
+- `401 Unauthorized`: If the user is not authenticated 
+
+### 2. List User's DMs
+```http
+GET /channels/me/dms?skip=0&limit=100
+```
+
+Returns all DM channels the current user is a member of, ordered by most recent message.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 100)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "name": "dm-user1-user2",
+        "description": "Direct Message Channel",
+        "owner_id": 1,
+        "created_at": "2024-01-07T12:00:00Z",
+        "is_private": true,
+        "is_dm": true,
+        "join_code": null,
+        "users": [
+            {
+                "id": 1,
+                "email": "user1@example.com",
+                "name": "User One",
+                "picture": "https://example.com/picture1.jpg"
+            },
+            {
+                "id": 2,
+                "email": "user2@example.com",
+                "name": "User Two",
+                "picture": "https://example.com/picture2.jpg"
+            }
+        ],
+        "messages": []
+    }
+]
+```
+
+### 3. List User's Channels
+```http
+GET /channels/me?skip=0&limit=100
+```
+
+Returns all channels the current user is a member of, ordered by most recent message.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 100)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "name": "general",
+        "description": "General discussion channel",
+        "owner_id": 1,
+        "created_at": "2024-01-07T12:00:00Z",
+        "is_private": false,
+        "join_code": null,
+        "users": [
+            {
+                "id": 1,
+                "email": "user@example.com",
+                "name": "User Name",
+                "picture": "https://example.com/picture.jpg"
+            }
+        ],
+        "messages": []
+    }
+]
 ``` 

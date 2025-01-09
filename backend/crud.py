@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session, joinedload
 import models, schemas
 from sqlalchemy.orm import joinedload
 import logging
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +315,65 @@ def remove_reaction_from_message(db: Session, message_id: int, reaction_id: int,
         db.commit()
         return True
     return False
+
+def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> models.Channel:
+    """Create a new DM channel with multiple users."""
+    # Generate DM name (can be customized for group DMs)
+    users = [get_user(db, user_id) for user_id in dm.user_ids]
+    users.append(get_user(db, creator_id))  # Add creator to the list
+    
+    # Filter out None values and create a sorted list of valid users
+    valid_users = [u for u in users if u is not None]
+    if len(valid_users) < 2:
+        return None
+        
+    # Create channel name from user names for 2-person DMs, or use provided name for group DMs
+    if len(valid_users) == 2:
+        channel_name = f"dm-{valid_users[0].name}-{valid_users[1].name}".lower().replace(" ", "-")
+    else:
+        channel_name = dm.name if dm.name else f"group-dm-{creator_id}-{'-'.join(str(uid) for uid in dm.user_ids)}"
+
+    # Create the DM channel
+    db_channel = models.Channel(
+        name=channel_name,
+        description="Direct Message Channel",
+        owner_id=creator_id,
+        is_private=True,
+        is_dm=True
+    )
+    db.add(db_channel)
+    db.commit()
+    db.refresh(db_channel)
+    
+    # Add all users to the channel
+    for user in valid_users:
+        db_user_channel = models.UserChannel(user_id=user.id, channel_id=db_channel.id)
+        db.add(db_user_channel)
+    
+    db.commit()
+    db.refresh(db_channel)
+    return db_channel
+
+def get_user_dms(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    """Get user's DM channels ordered by most recent message."""
+    # Subquery to get the latest message timestamp for each channel
+    latest_messages = (db.query(models.Message.channel_id,
+                              func.max(models.Message.created_at).label('latest_message_at'))
+                      .group_by(models.Message.channel_id)
+                      .subquery())
+    
+    # Query for DM channels with latest message timestamp
+    query = (db.query(models.Channel)
+             .join(models.UserChannel)
+             .filter(models.UserChannel.user_id == user_id)
+             .filter(models.Channel.is_dm == True)
+             .options(joinedload(models.Channel.users))
+             .outerjoin(latest_messages, models.Channel.id == latest_messages.c.channel_id)
+             .order_by(latest_messages.c.latest_message_at.desc().nullslast())
+             .offset(skip)
+             .limit(limit))
+    
+    return query.all()
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

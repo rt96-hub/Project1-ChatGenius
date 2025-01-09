@@ -866,6 +866,48 @@ async def remove_reaction_endpoint(
     
     raise HTTPException(status_code=404, detail="Reaction not found")
 
+@app.post("/channels/dm", response_model=schemas.Channel)
+async def create_dm_endpoint(
+    dm: schemas.DMCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a new DM channel with multiple users."""
+    # Validate that the creator is not in the user_ids list
+    if current_user.id in dm.user_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Creator should not be included in the user_ids list"
+        )
+    
+    db_channel = crud.create_dm(db=db, creator_id=current_user.id, dm=dm)
+    if db_channel is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not create DM channel. Make sure all user IDs are valid."
+        )
+    
+    # Add the new channel to the WebSocket connections for all users
+    manager.add_channel_for_user(current_user.id, db_channel.id)
+    for user_id in dm.user_ids:
+        manager.add_channel_for_user(user_id, db_channel.id)
+    
+    # Broadcast to all users that they've been added to the DM
+    for user in db_channel.users:
+        await manager.broadcast_member_joined(db_channel.id, user)
+    
+    return db_channel
+
+@app.get("/channels/me/dms", response_model=List[schemas.Channel])
+def read_user_dms(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get all DM channels for the current user, ordered by most recent message."""
+    return crud.get_user_dms(db, user_id=current_user.id, skip=skip, limit=limit)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
