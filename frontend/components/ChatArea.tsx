@@ -17,6 +17,7 @@ interface Message {
   id: number;
   content: string;
   created_at: string;
+  updated_at?: string;
   user_id: number;
   channel_id: number;
   user?: {
@@ -25,6 +26,26 @@ interface Message {
     name: string;
     picture?: string;
   };
+  reactions?: Array<{
+    id: number;
+    message_id: number;
+    reaction_id: number;
+    user_id: number;
+    created_at: string;
+    code?: string;
+    reaction: {
+      id: number;
+      code: string;
+      is_system: boolean;
+      image_url: string | null;
+    };
+    user: {
+      id: number;
+      email: string;
+      name: string;
+      picture?: string;
+    };
+  }>;
 }
 
 export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }: ChatAreaProps) {
@@ -37,6 +58,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const [hasMore, setHasMore] = useState(true);
   const [skip, setSkip] = useState(0);
   const [showMembers, setShowMembers] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -70,6 +92,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
       setSkip(0);
       setHasMore(true);
       setChannel(null);
+      setIsInitialLoad(true);
       
       // Create new abort controller for this channel's requests
       abortControllerRef.current = new AbortController();
@@ -88,11 +111,46 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
               break;
             case 'message_update':
               setMessages(prev => prev.map(msg => 
-                msg.id === data.message.id ? data.message : msg
+                msg.id === data.message.id 
+                  ? {
+                      ...data.message,
+                      reactions: msg.reactions // Preserve existing reactions
+                    }
+                  : msg
               ));
               break;
             case 'message_delete':
               setMessages(prev => prev.filter(msg => msg.id !== data.message_id));
+              break;
+            case 'message_reaction_add':
+              setMessages(prev => prev.map(msg =>
+                msg.id === data.message_id
+                  ? {
+                      ...msg,
+                      reactions: [...(msg.reactions || []), {
+                        ...data.reaction,
+                        reaction: {
+                          id: data.reaction.reaction_id,
+                          code: data.reaction.code || data.reaction.reaction?.code || 'unknown',
+                          is_system: true,
+                          image_url: null
+                        }
+                      }]
+                    }
+                  : msg
+              ));
+              break;
+            case 'message_reaction_remove':
+              setMessages(prev => prev.map(msg =>
+                msg.id === data.message_id
+                  ? {
+                      ...msg,
+                      reactions: (msg.reactions || []).filter(r => 
+                        !(r.reaction_id === data.reaction_id && r.user_id === data.user_id)
+                      )
+                    }
+                  : msg
+              ));
               break;
             case 'channel_update':
               setChannel(data.channel);
@@ -149,14 +207,22 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   }, [channelId]);
 
   useEffect(() => {
-    // Scroll to bottom on initial load
-    if (messages.length <= 50) {
-      const container = messagesContainerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
+    const container = messagesContainerRef.current;
+    if (!container || messages.length === 0) return;
+
+    // On initial load, scroll to bottom
+    if (isInitialLoad) {
+      container.scrollTop = container.scrollHeight;
+      setIsInitialLoad(false);
+      return;
     }
-  }, [messages]);
+
+    // For new messages, only scroll if they're very recent
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.created_at > (new Date(Date.now() - 1000).toISOString())) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isInitialLoad]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -193,7 +259,11 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     if (!channelId || channelId !== currentChannelRef.current) return null;
     try {
       const response = await api.get(`/channels/${channelId}/messages`, {
-        params: { skip: skipCount, limit: 50 },
+        params: { 
+          skip: skipCount, 
+          limit: 50,
+          include_reactions: true
+        },
         signal: abortControllerRef.current?.signal
       });
       
@@ -201,18 +271,18 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
       if (channelId !== currentChannelRef.current) return null;
       
       if (isInitial) {
-        setMessages(response.data.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
+        setMessages(response.data.messages.sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
       } else {
         setMessages(prev => {
-          const existingIds = new Set(prev.map(m => m.id));
-          const newMessages = response.data.messages.filter(m => !existingIds.has(m.id));
-          return [...newMessages, ...prev].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          const existingIds = new Set(prev.map((m: Message) => m.id));
+          const newMessages = response.data.messages.filter((m: Message) => !existingIds.has(m.id));
+          return [...newMessages, ...prev].sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         });
       }
       setHasMore(response.data.has_more);
       return response.data.messages;
-    } catch (error) {
-      if (error.name === 'AbortError') {
+    } catch (error: unknown) {
+      if ((error as { name?: string }).name === 'AbortError') {
         // Request was aborted, ignore
         return null;
       }

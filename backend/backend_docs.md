@@ -32,7 +32,7 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
    
 3. `Message`
    - Fields: id, content, created_at, updated_at, user_id, channel_id
-   - Relationships: user, channel
+   - Relationships: user, channel, reactions
    
 4. `UserChannel` (Association table)
    - Fields: user_id, channel_id
@@ -40,6 +40,17 @@ This is a FastAPI-based backend for a Slack-like communication platform. The sys
 5. `ChannelRole`
    - Fields: id, channel_id, user_id, role, created_at
    - Relationships: channel, user
+
+6. `Reaction`
+   - Fields: id, code, is_system, image_url, created_at
+   - Relationships: message_reactions
+   - Purpose: Stores available reactions (both system emojis and custom uploaded ones)
+   
+7. `MessageReaction`
+   - Fields: id, message_id, reaction_id, user_id, created_at
+   - Relationships: message, reaction, user
+   - Constraints: Unique constraint on (message_id, reaction_id, user_id)
+   - Purpose: Associates reactions with messages and the users who made them
 
 **Dependencies**:
 - SQLAlchemy

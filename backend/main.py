@@ -253,42 +253,116 @@ async def websocket_endpoint(
         try:
             while True:
                 data = await websocket.receive_json()
+                event_type = data.get('type')
                 channel_id = data.get('channel_id')
-                content = data.get('content')
                 
-                if not channel_id or not content:
+                if not channel_id or channel_id not in manager.user_channels[user.id]:
                     continue
                 
-                # Verify channel membership
-                if channel_id not in manager.user_channels[user.id]:
-                    continue
-                
-                # Create and save the message
-                message = crud.create_message(
-                    db=db,
-                    channel_id=channel_id,
-                    user_id=user.id,
-                    message=schemas.MessageCreate(content=content)
-                )
-                
-                # Prepare message data for broadcast
-                message_data = {
-                    "type": "new_message",
-                    "channel_id": channel_id,
-                    "message": {
-                        "id": message.id,
-                        "content": message.content,
-                        "created_at": message.created_at.isoformat(),
-                        "user_id": message.user_id,
-                        "channel_id": message.channel_id,
-                        "user": {
-                            "id": user.id,
-                            "email": user.email,
-                            "name": user.name
+                if event_type == "new_message":
+                    content = data.get('content')
+                    if not content:
+                        continue
+                    
+                    # Create and save the message
+                    message = crud.create_message(
+                        db=db,
+                        channel_id=channel_id,
+                        user_id=user.id,
+                        message=schemas.MessageCreate(content=content)
+                    )
+                    
+                    # Prepare message data for broadcast
+                    message_data = {
+                        "type": "new_message",
+                        "channel_id": channel_id,
+                        "message": {
+                            "id": message.id,
+                            "content": message.content,
+                            "created_at": message.created_at.isoformat(),
+                            "user_id": message.user_id,
+                            "channel_id": message.channel_id,
+                            "user": {
+                                "id": user.id,
+                                "email": user.email,
+                                "name": user.name
+                            }
                         }
                     }
-                }
-                await manager.broadcast_to_channel(message_data, channel_id)
+                    await manager.broadcast_to_channel(message_data, channel_id)
+                
+                elif event_type == "add_reaction":
+                    message_id = data.get('message_id')
+                    reaction_id = data.get('reaction_id')
+                    if not message_id or not reaction_id:
+                        continue
+                    
+                    # Verify message belongs to channel
+                    db_message = crud.get_message(db, message_id=message_id)
+                    if not db_message or db_message.channel_id != channel_id:
+                        continue
+                    
+                    # Add the reaction
+                    message_reaction = crud.add_reaction_to_message(
+                        db=db,
+                        message_id=message_id,
+                        reaction_id=reaction_id,
+                        user_id=user.id
+                    )
+                    
+                    # Get the reaction object
+                    db_reaction = crud.get_reaction(db, reaction_id=reaction_id)
+                    
+                    # Broadcast the reaction
+                    reaction_data = {
+                        "type": "message_reaction_add",
+                        "channel_id": channel_id,
+                        "message_id": message_id,
+                        "reaction": {
+                            "id": message_reaction.id,
+                            "message_id": message_reaction.message_id,
+                            "reaction_id": message_reaction.reaction_id,
+                            "user_id": message_reaction.user_id,
+                            "created_at": message_reaction.created_at.isoformat(),
+                            "reaction": {
+                                "id": db_reaction.id,
+                                "code": db_reaction.code,
+                                "is_system": db_reaction.is_system,
+                                "image_url": db_reaction.image_url
+                            },
+                            "user": {
+                                "id": user.id,
+                                "email": user.email,
+                                "name": user.name,
+                                "picture": user.picture
+                            }
+                        }
+                    }
+                    await manager.broadcast_to_channel(reaction_data, channel_id)
+                
+                elif event_type == "remove_reaction":
+                    message_id = data.get('message_id')
+                    reaction_id = data.get('reaction_id')
+                    if not message_id or not reaction_id:
+                        continue
+                    
+                    # Verify message belongs to channel
+                    db_message = crud.get_message(db, message_id=message_id)
+                    if not db_message or db_message.channel_id != channel_id:
+                        continue
+                    
+                    # Remove the reaction
+                    if crud.remove_reaction_from_message(db, message_id, reaction_id, user.id):
+                        # Broadcast the removal
+                        reaction_data = {
+                            "type": "message_reaction_remove",
+                            "channel_id": channel_id,
+                            "message_id": message_id,
+                            "reaction_id": reaction_id,
+                            "user_id": user.id
+                        }
+                        await manager.broadcast_to_channel(reaction_data, channel_id)
+                
         except WebSocketDisconnect:
             if user_id is not None:
                 manager.disconnect(websocket, user_id)
@@ -478,6 +552,7 @@ def read_channel_messages(
     channel_id: int,
     skip: int = 0,
     limit: int = 50,
+    include_reactions: bool = False,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -487,7 +562,13 @@ def read_channel_messages(
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     
-    return crud.get_channel_messages(db, channel_id=channel_id, skip=skip, limit=limit)
+    return crud.get_channel_messages(
+        db, 
+        channel_id=channel_id, 
+        skip=skip, 
+        limit=limit,
+        include_reactions=include_reactions
+    )
 
 @app.put("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
 async def update_message_endpoint(
@@ -677,6 +758,113 @@ async def leave_channel_endpoint(
         await manager.broadcast_member_left(channel_id, current_user.id)
         return {"message": "Successfully left the channel"}
     raise HTTPException(status_code=500, detail="Failed to leave channel")
+
+# Reaction endpoints
+@app.get("/reactions/", response_model=List[schemas.Reaction])
+def list_reactions(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get all available reactions"""
+    return crud.get_all_reactions(db, skip=skip, limit=limit)
+
+@app.post("/channels/{channel_id}/messages/{message_id}/reactions", response_model=schemas.MessageReaction)
+async def add_reaction_endpoint(
+    channel_id: int,
+    message_id: int,
+    reaction: schemas.MessageReactionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Add a reaction to a message"""
+    # Check if message exists and user has permission
+    db_message = crud.get_message(db, message_id=message_id)
+    if db_message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if db_message.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Message does not belong to this channel")
+    
+    # Check if user is member of the channel
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Add the reaction
+    message_reaction = crud.add_reaction_to_message(
+        db=db,
+        message_id=message_id,
+        reaction_id=reaction.reaction_id,
+        user_id=current_user.id
+    )
+    
+    # Get the reaction object to include its code
+    db_reaction = crud.get_reaction(db, reaction_id=reaction.reaction_id)
+    
+    # Broadcast the reaction to all users in the channel
+    reaction_data = {
+        "type": "message_reaction_add",
+        "channel_id": channel_id,
+        "message_id": message_id,
+        "reaction": {
+            "id": message_reaction.id,
+            "reaction_id": message_reaction.reaction_id,
+            "user_id": message_reaction.user_id,
+            "created_at": message_reaction.created_at.isoformat(),
+            "reaction": {
+                "id": db_reaction.id,
+                "code": db_reaction.code,
+                "is_system": db_reaction.is_system,
+                "image_url": db_reaction.image_url
+            },
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "name": current_user.name,
+                "picture": current_user.picture
+            }
+        }
+    }
+    await manager.broadcast_to_channel(reaction_data, channel_id)
+    
+    return message_reaction
+
+@app.delete("/channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}")
+async def remove_reaction_endpoint(
+    channel_id: int,
+    message_id: int,
+    reaction_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Remove a reaction from a message"""
+    # Check if message exists
+    db_message = crud.get_message(db, message_id=message_id)
+    if db_message is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if db_message.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Message does not belong to this channel")
+    
+    # Check if user is member of the channel
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Remove the reaction
+    if crud.remove_reaction_from_message(db, message_id, reaction_id, current_user.id):
+        # Broadcast the reaction removal to all users in the channel
+        reaction_data = {
+            "type": "message_reaction_remove",
+            "channel_id": channel_id,
+            "message_id": message_id,
+            "reaction_id": reaction_id,
+            "user_id": current_user.id
+        }
+        await manager.broadcast_to_channel(reaction_data, channel_id)
+        return {"message": "Reaction removed successfully"}
+    
+    raise HTTPException(status_code=404, detail="Reaction not found")
 
 if __name__ == "__main__":
     import uvicorn

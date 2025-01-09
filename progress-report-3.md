@@ -42,6 +42,7 @@
    - Group direct messages
    - Complete role-based permissions system
    - User invitation management
+   - pin channels and dms to top of their respective lists
 
 3. **File Sharing and Search System**
    - File upload and storage

@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+import sqlalchemy as sa
 
 class User(Base):
     __tablename__ = "users"
@@ -46,6 +47,7 @@ class Message(Base):
 
     user = relationship("User", back_populates="messages")
     channel = relationship("Channel", back_populates="messages")
+    reactions = relationship("MessageReaction", back_populates="message")
 
 class UserChannel(Base):
     __tablename__ = "user_channels"
@@ -64,4 +66,32 @@ class ChannelRole(Base):
 
     channel = relationship("Channel", back_populates="roles")
     user = relationship("User")
+
+class Reaction(Base):
+    __tablename__ = "reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), nullable=False, unique=True)
+    is_system = Column(Boolean, default=True)
+    image_url = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    message_reactions = relationship("MessageReaction", back_populates="reaction")
+
+class MessageReaction(Base):
+    __tablename__ = "message_reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("messages.id"))
+    reaction_id = Column(Integer, ForeignKey("reactions.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    message = relationship("Message", back_populates="reactions")
+    reaction = relationship("Reaction", back_populates="message_reactions")
+    user = relationship("User")
+
+    __table_args__ = (
+        sa.UniqueConstraint('message_id', 'reaction_id', 'user_id', name='unique_message_reaction_user'),
+    )
 

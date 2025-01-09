@@ -438,6 +438,132 @@ Deletes a message. Only the message author can perform this action.
 **Response (200 OK):**
 Returns the deleted message object.
 
+## Reaction Management
+
+### 1. List All Reactions
+```http
+GET /reactions/?skip=0&limit=100
+```
+
+Returns a list of all available reactions with pagination.
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 100)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "code": "thumbs_up",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    },
+    {
+        "id": 2,
+        "code": "heart",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    }
+]
+```
+
+### 2. Add Reaction to Message
+```http
+POST /channels/{channel_id}/messages/{message_id}/reactions
+```
+
+Adds a reaction to a message. If the user has already added this reaction to this message, returns the existing reaction.
+
+**Request Body:**
+```json
+{
+    "reaction_id": 1
+}
+```
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "message_id": 1,
+    "reaction_id": 1,
+    "user_id": 1,
+    "created_at": "2024-01-08T12:00:00Z",
+    "reaction": {
+        "id": 1,
+        "code": "thumbs_up",
+        "is_system": true,
+        "image_url": null,
+        "created_at": "2024-01-08T12:00:00Z"
+    },
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "User Name",
+        "picture": "https://example.com/picture.jpg"
+    }
+}
+```
+
+### 3. Remove Reaction from Message
+```http
+DELETE /channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}
+```
+
+Removes a user's reaction from a message.
+
+**Response (200 OK):**
+```json
+{
+    "message": "Reaction removed successfully"
+}
+```
+
+### WebSocket Events for Reactions
+
+1. **Reaction Added**
+```json
+{
+    "type": "message_reaction_add",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction": {
+        "id": 1,
+        "message_id": 1,
+        "reaction_id": 1,
+        "user_id": 1,
+        "created_at": "2024-01-08T12:00:00Z",
+        "reaction": {
+            "id": 1,
+            "code": "thumbs_up",
+            "is_system": true,
+            "image_url": null
+        },
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    }
+}
+```
+
+2. **Reaction Removed**
+```json
+{
+    "type": "message_reaction_remove",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction_id": 1,
+    "user_id": 1
+}
+```
+
 ## WebSocket Connection
 
 ### Connect to WebSocket
@@ -457,6 +583,12 @@ Establishes a WebSocket connection for real-time updates.
 {
     "type": "new_message",
     "channel_id": 1,
+    "content": "Hello, world!"
+}
+
+{
+    "type": "new_message",
+    "channel_id": 1,
     "message": {
         "id": 1,
         "content": "Hello, world!",
@@ -472,7 +604,53 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-2. **Message Update**
+2. **Add Reaction**
+```json
+{
+    "type": "add_reaction",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction_id": 1
+}
+
+{
+    "type": "message_reaction_add",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction": {
+        "id": 1,
+        "reaction_id": 1,
+        "user_id": 1,
+        "created_at": "2024-01-08T12:00:00Z",
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    }
+}
+```
+
+3. **Remove Reaction**
+```json
+{
+    "type": "remove_reaction",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction_id": 1
+}
+
+{
+    "type": "message_reaction_remove",
+    "channel_id": 1,
+    "message_id": 1,
+    "reaction_id": 1,
+    "user_id": 1
+}
+```
+
+4. **Message Update**
 ```json
 {
     "type": "message_update",
@@ -493,7 +671,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-3. **Message Delete**
+5. **Message Delete**
 ```json
 {
     "type": "message_delete",
@@ -502,7 +680,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-4. **Channel Update**
+6. **Channel Update**
 ```json
 {
     "type": "channel_update",
@@ -516,7 +694,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-5. **Member Joined**
+7. **Member Joined**
 ```json
 {
     "type": "member_joined",
@@ -530,7 +708,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-6. **Member Left**
+8. **Member Left**
 ```json
 {
     "type": "member_left",
@@ -539,7 +717,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-7. **Role Updated**
+9. **Role Updated**
 ```json
 {
     "type": "role_updated",
@@ -549,7 +727,7 @@ Establishes a WebSocket connection for real-time updates.
 }
 ```
 
-8. **Privacy Updated**
+10. **Privacy Updated**
 ```json
 {
     "type": "privacy_updated",

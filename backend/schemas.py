@@ -1,7 +1,11 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, ForwardRef
 from pydantic import EmailStr
+
+# Forward references for circular dependencies
+Message = ForwardRef('Message')
+MessageReaction = ForwardRef('MessageReaction')
 
 class MessageBase(BaseModel):
     content: str
@@ -19,6 +23,37 @@ class UserInChannel(BaseModel):
     class Config:
         orm_mode = True
 
+class ReactionBase(BaseModel):
+    code: str
+    is_system: bool = True
+    image_url: Optional[str] = None
+
+class ReactionCreate(ReactionBase):
+    pass
+
+class Reaction(ReactionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class MessageReactionCreate(BaseModel):
+    reaction_id: int
+
+class MessageReaction(BaseModel):
+    id: int
+    message_id: int
+    reaction_id: int
+    user_id: int
+    created_at: datetime
+    code: Optional[str] = None
+    reaction: Reaction
+    user: UserInChannel
+
+    class Config:
+        orm_mode = True
+
 class Message(MessageBase):
     id: int
     created_at: datetime
@@ -26,9 +61,14 @@ class Message(MessageBase):
     user_id: int
     channel_id: int
     user: UserInChannel
+    reactions: List[MessageReaction] = []
 
     class Config:
         orm_mode = True
+
+# Update forward references
+Message.update_forward_refs(MessageReaction=MessageReaction)
+MessageReaction.update_forward_refs(Message=Message)
 
 class ChannelBase(BaseModel):
     name: str

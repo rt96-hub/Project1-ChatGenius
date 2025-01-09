@@ -91,6 +91,8 @@ interface ChatAreaProps {
 - Edit/Delete functionality for message owners
 - Timestamp display
 - Visual feedback on hover
+- Emoji reactions with counter
+- Reaction management (add/remove)
 
 **Props**:
 ```typescript
@@ -114,6 +116,18 @@ interface ChatMessageProps {
   - Response: Updated Message object
 
 - DELETE `/channels/{channelId}/messages/{messageId}`
+  - Response: Status 200 on success
+
+- POST `/channels/{channelId}/messages/{messageId}/reactions`
+  - Request Body:
+    ```typescript
+    {
+      reaction_id: number;
+    }
+    ```
+  - Response: New Reaction object
+
+- DELETE `/channels/{channelId}/messages/{messageId}/reactions/{reactionId}`
   - Response: Status 200 on success
 
 ### Sidebar.tsx
@@ -475,3 +489,42 @@ API Endpoints Used:
 - @headlessui/react for modal and tabs components
 - @heroicons/react for icons
 - TailwindCSS for styling 
+
+### EmojiSelector.tsx
+**Purpose**: Popup component for selecting emoji reactions.
+
+**Key Features**:
+- Displays available emoji reactions
+- Handles emoji selection
+- Click-outside detection for closing
+- Loading state while fetching reactions
+- Support for both system emojis and custom image-based reactions
+
+**Props**:
+```typescript
+interface EmojiSelectorProps {
+  onSelect: (reactionId: number) => void;
+  onClose: () => void;
+  position: { top: number; left: number };
+}
+```
+
+**API Interactions**:
+- GET `/reactions/`
+  - Response:
+    ```typescript
+    {
+      id: number;
+      code: string;
+      is_system: boolean;
+      image_url: string | null;
+      created_at: string;
+    }[]
+    ```
+
+**Implementation Details**:
+- Uses a fixed mapping of emoji codes to actual emoji characters
+- Supports both system emojis and custom uploaded emojis
+- Positioned absolutely based on the trigger button location
+- Implements click-outside detection for better UX
+- Shows loading spinner while fetching available reactions 
