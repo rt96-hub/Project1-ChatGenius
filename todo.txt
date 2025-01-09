@@ -22,10 +22,7 @@ TODO List:
    - Send dms, add to channels
    - click a users message to view their profile
 
-9. IMPORTANT: Fix chat box at the bottom from being forced halfway off the screen
-10. sending messages stopped working after adding reactions
-11. fix ? that appears when another user reacts to a message, websocket not sending the reaction type? or not being interpreted on the frontend
-12. when a reaction is added (think from websocket), the chat area scrolls to the bottom on both clients
+
 
 
 13. AI summarize documents of supported file types when they are uploaded, store an AI summary of the document in the database
@@ -43,4 +40,10 @@ TODO List:
 20. fix channel invite codes, also invite to channel from user profile
 
 18. test skipping channel message requests skip pages
+
+
 19. check the frequency of requests to the server, seems like some are being sent more than once, scrolling, login, auth/verify
+
+
+20. scroll to bottom when the user sends a message (not when a message is received)
+21. when opening a channel, scroll should start at the bottom, I think this is a problem with the footer or header sizes not being accoutned for in the scroll logic

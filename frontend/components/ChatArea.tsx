@@ -61,6 +61,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentChannelRef = useRef<number | null>(null);
   const { connectionStatus, sendMessage, addMessageListener } = useConnection();
@@ -93,6 +94,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
       setHasMore(true);
       setChannel(null);
       setIsInitialLoad(true);
+      setNewMessage(''); // Reset the textarea content when switching channels
       
       // Create new abort controller for this channel's requests
       abortControllerRef.current = new AbortController();
@@ -317,22 +319,42 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
     e.preventDefault();
     if (!channelId || !newMessage.trim()) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
+    
+    // Reset textarea height using the ref
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '45px';
+    }
+
     try {
-      // Send message through WebSocket
-      sendMessage({
-        channel_id: channelId,
-        content: newMessage.trim()
-      });
-      setNewMessage('');
+      // Try WebSocket first with correct message format
+      try {
+        await sendMessage({
+          type: "new_message",
+          channel_id: channelId,
+          content: messageContent
+        });
+      } catch (wsError) {
+        console.error('WebSocket send failed:', wsError);
+        // If WebSocket fails, fallback to HTTP
+        const response = await api.post(
+          `/channels/${channelId}/messages`,
+          { content: messageContent }
+        );
+        
+        // Add the new message to the messages array
+        if (response.data) {
+          setMessages(prev => [...prev, response.data].sort((a, b) => 
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ));
+        }
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Fallback to HTTP if WebSocket fails
-      await api.post(
-        `/channels/${channelId}/messages`,
-        { content: newMessage }
-      );
-      setNewMessage('');
-      fetchMessages(0, true);
+      // Show error in input field
+      setNewMessage(messageContent);
+      // You might want to add a toast notification here
     }
   };
 
@@ -411,57 +433,60 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
 
   return (
     <div className="flex h-full">
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col h-full">
         {channel && currentUserId && (
-          <ChannelHeader
-            channel={channel}
-            currentUserId={currentUserId}
-            onChannelUpdate={onChannelUpdate || (() => {})}
-            onChannelDelete={onChannelDelete}
-            onUpdateMemberRole={handleUpdateMemberRole}
-            onRemoveMember={handleRemoveMember}
-            onGenerateInvite={handleGenerateInvite}
-            onToggleMembers={() => setShowMembers(!showMembers)}
-            showMembers={showMembers}
-          />
-        )}
-        <div className="flex-1">
-          <div 
-            id="scrollableDiv"
-            ref={messagesContainerRef}
-            className="h-full overflow-y-auto p-4 space-y-4"
-            style={{ height: 'calc(100vh - 180px)' }}
-          >
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                currentUserId={currentUserId || 0}
-                channelId={channelId}
-                onMessageUpdate={handleMessageUpdate}
-                onMessageDelete={handleMessageDelete}
-              />
-            ))}
-            <div ref={messagesEndRef} />
+          <div className="flex-none">
+            <ChannelHeader
+              channel={channel}
+              currentUserId={currentUserId}
+              onChannelUpdate={onChannelUpdate || (() => {})}
+              onChannelDelete={onChannelDelete}
+              onUpdateMemberRole={handleUpdateMemberRole}
+              onRemoveMember={handleRemoveMember}
+              onGenerateInvite={handleGenerateInvite}
+              onToggleMembers={() => setShowMembers(!showMembers)}
+              showMembers={showMembers}
+            />
           </div>
+        )}
+        <div 
+          id="scrollableDiv"
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+        >
+          {messages.map((message) => (
+            <ChatMessage
+              key={message.id}
+              message={message}
+              currentUserId={currentUserId || 0}
+              channelId={channelId}
+              onMessageUpdate={handleMessageUpdate}
+              onMessageDelete={handleMessageDelete}
+            />
+          ))}
+          <div ref={messagesEndRef} />
         </div>
         <div className="flex-none border-t border-gray-200 p-4 bg-white">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            <input
-              type="text"
+          <form onSubmit={handleSendMessage} className="flex items-end gap-2">
+            <textarea
+              ref={textareaRef}
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                // Auto-adjust height
+                e.target.style.height = '45px';  // Reset first
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
               placeholder="Type a message..."
-              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:border-blue-500"
+              className="flex-1 rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:border-blue-500 resize-none overflow-y-auto min-h-[45px] max-h-[200px]"
+              rows={1}
             />
-            <button
-              type="button"
-              onClick={() => setShowMembers(!showMembers)}
-              className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
-              title={showMembers ? "Hide Members" : "Show Members"}
-            >
-              <UsersIcon className="h-5 w-5" />
-            </button>
             <button
               type="submit"
               className="flex-none p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
