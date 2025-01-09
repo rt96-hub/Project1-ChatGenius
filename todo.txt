@@ -50,3 +50,9 @@ TODO List:
 20. when a user clicks a reaction to remove their own, the other user's reaction is removed visually
 
 21. increase time required for the yellow away status to turn on
+22. error indicator for trying to change the privacy of a dm (maybe changing the channel settings modal to be different if its a dm)
+23. edit user profile, updating name doesn't work
+24. Channel list defaults to alphabetical, but it can be pinned to top (does this have to be stored in db? maybe is_pinned in channel_members, also could add role_id to same table)
+25. still need to implement search in dm modals, as well as search bar at the top across all messages and channels you are in
+26. Verify sorting of dms by last message date
+27. Ensure DM creation is sent/received via websocket

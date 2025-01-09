@@ -14,6 +14,7 @@ This document provides a comprehensive overview of the components used in the fr
 - Channel information display
 - Reaction management
 - Member list integration
+- Direct Message navigation support
 
 **Props**:
 ```typescript
@@ -21,6 +22,7 @@ interface ChatAreaProps {
   channelId: number | null;
   onChannelUpdate?: () => void;
   onChannelDelete?: () => void;
+  onNavigateToDM?: (channelId: number) => void;  // For handling DM navigation
 }
 ```
 
@@ -82,6 +84,7 @@ interface ChatAreaProps {
 - User avatar and profile link
 - Emoji reactions with counter
 - Reaction management (add/remove)
+- Direct Message initiation through user profile
 
 **Props**:
 ```typescript
@@ -91,6 +94,7 @@ interface ChatMessageProps {
   channelId: number;
   onMessageUpdate: (updatedMessage: Message) => void;
   onMessageDelete: (messageId: number) => void;
+  onNavigateToDM?: (channelId: number) => void;  // For handling DM navigation
 }
 ```
 
@@ -119,6 +123,13 @@ interface ChatMessageProps {
   ```typescript
   // Response: Status 200 on success
   ```
+
+**Key Functions**:
+- `handleAddReaction`: Manages adding emoji reactions
+- `handleRemoveReaction`: Manages removing emoji reactions
+- `handleEdit`: Handles message editing
+- `handleDelete`: Handles message deletion
+- `handleSendDM`: Opens DM channel with message author
 
 ### ChannelHeader.tsx
 **Purpose**: Displays channel information and provides channel management controls.
@@ -185,15 +196,39 @@ interface EmojiSelectorProps {
 - Profile picture display
 - User status management
 - Integration with Auth0 user metadata
+- Direct Message functionality with existing/new DM channel creation
 
 **Props**:
 ```typescript
 interface UserProfilePopoutProps {
-  user: Auth0User;
+  user: User;
+  isCurrentUser: boolean;
   onClose: () => void;
-  onUpdateProfile?: (updates: { name?: string; bio?: string }) => Promise<void>;
+  onUpdate?: (updatedUser: User) => void;
+  onNavigateToDM?: (channelId: number) => void;  // For handling DM navigation
 }
 ```
+
+**API Endpoints**:
+- GET `/users/{id}` - Fetch user data
+- PUT `/users/me/name` - Update user name
+- PUT `/users/me/bio` - Update user bio
+- GET `/channels/dm/check/{other_user_id}` - Check for existing DM channel
+- POST `/channels/dm` - Create new DM channel
+
+**State Management**:
+- `isEditing`: Controls profile edit mode
+- `isDMLoading`: Handles loading state during DM operations
+- `error`: Stores error messages
+- `currentUser`: Stores the current user data
+- `isFetching`: Handles loading state during data fetching
+
+**Key Functions**:
+- `handleSubmit`: Handles profile updates
+- `handleSendDM`: Manages DM channel creation/navigation
+  1. Checks for existing DM channel
+  2. If exists, navigates to it
+  3. If not, creates new DM channel and navigates to it
 
 ### ProfileStatus.tsx
 **Purpose**: Shows user status and provides access to profile management.
@@ -327,6 +362,146 @@ interface ConfirmDialogProps {
   }
   // Response: New Channel object
   ```
+
+### Sidebar.tsx
+**Purpose**: Main navigation component displaying channels and direct messages.
+
+**Key Features**:
+- Displays list of channels
+- Displays list of direct messages (limited to 5)
+- Channel creation and joining functionality
+- Visual indicators for private channels and selected channel
+- Role badges for moderators and owners
+- Real-time updates through WebSocket connection
+
+**Props**:
+```typescript
+interface SidebarProps {
+    onChannelSelect: (channelId: number) => void;
+    refreshTrigger: number;
+}
+```
+
+**API Endpoints**:
+- GET `/channels/me`
+  ```typescript
+  // Response: Array of Channel objects
+  ```
+- GET `/channels/me/dms?limit=5`
+  ```typescript
+  // Response: Array of DM Channel objects
+  ```
+- POST `/channels/join`
+  ```typescript
+  // Request Body
+  {
+    code: string;
+  }
+  // Response: Channel object
+  ```
+
+**State Management**:
+- `channels`: Regular channels list
+- `dmChannels`: Direct message channels list (limited to 5)
+- `selectedChannelId`: Currently selected channel
+- `isCreateModalOpen`: Controls channel creation modal
+- `showJoinDialog`: Controls channel join dialog
+- `joinCode`: Stores the join code for private channels
+
+**WebSocket Events**:
+- Listens for `channel_update` events
+- Updates both regular and DM channels in real-time
+
+**Dependencies**:
+- `useApi`: For making authenticated API requests
+- `useAuth`: For accessing current user information
+- `useConnection`: For WebSocket connection management
+- `CreateChannelModal`: For channel creation
+- `ConfirmDialog`: For join code input
+
+### ViewDMsModal.tsx
+**Purpose**: Modal component for viewing all direct message channels.
+
+**Key Features**:
+- Displays a complete list of user's DM channels
+- Search bar for filtering DMs (UI only for now)
+- Shows other participants' names for each DM
+- Shows timestamp of last message in each DM
+- Sorts DMs by most recent message first
+- Clickable DM entries that navigate to the conversation
+
+**Props**:
+```typescript
+interface ViewDMsModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onDMSelect: (channelId: number) => void;
+    currentUserId: number;
+    dmChannels: Channel[];
+}
+```
+
+**Data Display**:
+- Uses the `messages` array from each channel to determine the last message timestamp
+- Sorts channels based on their most recent message's `created_at` timestamp
+- Shows "No messages" for channels without any messages
+
+### NewDMModal.tsx
+**Purpose**: Modal component for creating new direct message conversations.
+
+**Key Features**:
+- Displays list of users ordered by last DM interaction
+- Search bar for filtering users (UI only for now)
+- User profile pictures and email display
+- Shows timestamp of last DM with each user (or "Never" if no previous DMs)
+- Creates new DM channel on user selection
+
+**Props**:
+```typescript
+interface NewDMModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onDMCreated: (channelId: number) => void;
+}
+```
+
+**Data Structure**:
+```typescript
+interface UserWithLastDM {
+    user: User;
+    last_dm_at: string | null;  // Timestamp of last DM, null if no DM exists
+    channel_id: number | null;  // ID of existing DM channel, null if none exists
+}
+```
+
+**API Endpoints**:
+- GET `/users/by-last-dm`
+  ```typescript
+  // Response
+  {
+    user: {
+        id: number;
+        email: string;
+        name: string;
+        picture?: string;
+        bio?: string;
+    };
+    last_dm_at: string | null;
+    channel_id: number | null;
+  }[]
+  ```
+- POST `/channels/dm`
+  ```typescript
+  // Request Body
+  {
+    user_ids: number[];
+  }
+  // Response: Channel object
+  ```
+
+**Dependencies**:
+- `useApi`: For making authenticated API requests
+- `MagnifyingGlassIcon`: From Heroicons for search UI
 
 ## Data Models
 

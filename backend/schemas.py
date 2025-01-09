@@ -159,3 +159,17 @@ class ChannelPrivacyUpdate(BaseModel):
     is_private: bool
     join_code: Optional[str] = None
 
+class UserWithLastDM(BaseModel):
+    user: User
+    last_dm_at: Optional[str] = None
+    channel_id: Optional[int] = None  # ID of the one-on-one DM channel
+
+    class Config:
+        orm_mode = True
+
+class DMCheckResponse(BaseModel):
+    channel_id: Optional[int] = None
+
+    class Config:
+        orm_mode = True
+

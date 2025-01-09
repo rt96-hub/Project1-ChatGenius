@@ -18,6 +18,7 @@ interface ProfileStatusProps {
   user: User;
   connectionStatus: ConnectionStatus;
   onProfileUpdate?: (updates: { name?: string; bio?: string }) => Promise<void>;
+  onNavigateToDM?: (channelId: number) => void;
 }
 
 const getStatusColor = (status: ConnectionStatus): string => {
@@ -53,7 +54,7 @@ const getStatusTitle = (status: ConnectionStatus): string => {
   }
 };
 
-export default function ProfileStatus({ user, connectionStatus, onProfileUpdate }: ProfileStatusProps) {
+export default function ProfileStatus({ user, connectionStatus, onProfileUpdate, onNavigateToDM }: ProfileStatusProps) {
   const [showProfile, setShowProfile] = useState(false);
   const initial = user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase();
 
@@ -89,7 +90,8 @@ export default function ProfileStatus({ user, connectionStatus, onProfileUpdate 
           user={user}
           isCurrentUser={true}
           onClose={() => setShowProfile(false)}
-          onUpdateProfile={onProfileUpdate}
+          onUpdate={onProfileUpdate}
+          onNavigateToDM={onNavigateToDM}
         />
       )}
     </>

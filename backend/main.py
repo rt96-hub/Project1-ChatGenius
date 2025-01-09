@@ -388,6 +388,23 @@ async def read_users_me(
             detail=f"Error getting current user: {str(e)}"
         )
 
+@app.get("/users/by-last-dm", response_model=List[schemas.UserWithLastDM])
+def read_users_by_last_dm(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get all users ordered by their last DM interaction with the current user.
+    Users with no DM history appear first, followed by users with DMs ordered by ascending date
+    (most recent DM appears last)."""
+    return crud.get_users_by_last_dm(
+        db,
+        current_user_id=current_user.id,
+        skip=skip,
+        limit=limit
+    )
+
 @app.get("/users/", response_model=List[schemas.User])
 def read_users(
     skip: int = 0,
@@ -907,6 +924,32 @@ def read_user_dms(
 ):
     """Get all DM channels for the current user, ordered by most recent message."""
     return crud.get_user_dms(db, user_id=current_user.id, skip=skip, limit=limit)
+
+@app.get("/channels/dm/check/{other_user_id}", response_model=schemas.DMCheckResponse)
+def check_existing_dm_endpoint(
+    other_user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Check if there's an existing one-on-one DM channel between the current user and another user."""
+    try:
+        # Check if other user exists
+        other_user = crud.get_user(db, user_id=other_user_id)
+        if not other_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Check for existing DM channel
+        channel_id = crud.get_existing_dm_channel(db, current_user.id, other_user_id)
+        
+        return {"channel_id": channel_id}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error checking DM channel: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking DM channel: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

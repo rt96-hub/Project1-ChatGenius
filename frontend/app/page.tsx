@@ -23,6 +23,12 @@ export default function Home() {
     setRefreshChannelList(prev => prev + 1); // Refresh channel list
   }, []);
 
+  // Add handler for DM navigation
+  const handleNavigateToDM = useCallback((channelId: number) => {
+    setSelectedChannelId(channelId);
+    setRefreshChannelList(prev => prev + 1); // Refresh to ensure DM appears in sidebar
+  }, []);
+
   return (
     <ProtectedRoute>
       <div className="flex flex-col h-screen w-full overflow-hidden">
@@ -39,6 +45,7 @@ export default function Home() {
               channelId={selectedChannelId} 
               onChannelUpdate={handleChannelUpdate}
               onChannelDelete={handleChannelDelete}
+              onNavigateToDM={handleNavigateToDM}
             />
           </div>
         </div>

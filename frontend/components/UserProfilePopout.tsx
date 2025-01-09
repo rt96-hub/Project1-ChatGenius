@@ -17,13 +17,15 @@ interface UserProfilePopoutProps {
   isCurrentUser: boolean;
   onClose: () => void;
   onUpdate?: (updatedUser: User) => void;
+  onNavigateToDM?: (channelId: number) => void;
 }
 
 export default function UserProfilePopout({ 
   user, 
   isCurrentUser, 
   onClose,
-  onUpdate
+  onUpdate,
+  onNavigateToDM
 }: UserProfilePopoutProps) {
   const api = useApi();
   const [isEditing, setIsEditing] = useState(false);
@@ -33,6 +35,7 @@ export default function UserProfilePopout({
   const [error, setError] = useState('');
   const [currentUser, setCurrentUser] = useState<User>(user);
   const [isFetching, setIsFetching] = useState(true);
+  const [isDMLoading, setIsDMLoading] = useState(false);
 
   // Fetch latest user data when modal opens
   useEffect(() => {
@@ -67,17 +70,17 @@ export default function UserProfilePopout({
       
       // Update name if changed
       if (name !== currentUser.name) {
-        console.log('Sending name update request:', { name }); // Log the request data
+        console.log('Sending name update request:', { name });
         const nameResponse = await api.put('/users/me/name', { name });
-        console.log('Name update response:', nameResponse.data); // Log the response
+        console.log('Name update response:', nameResponse.data);
         updatedUser = { ...updatedUser, ...nameResponse.data };
       }
       
       // Update bio if changed
       if (bio !== currentUser.bio) {
-        console.log('Sending bio update request:', { bio }); // Log the request data
+        console.log('Sending bio update request:', { bio });
         const bioResponse = await api.put('/users/me/bio', { bio });
-        console.log('Bio update response:', bioResponse.data); // Log the response
+        console.log('Bio update response:', bioResponse.data);
         updatedUser = { ...updatedUser, ...bioResponse.data };
       }
 
@@ -87,7 +90,7 @@ export default function UserProfilePopout({
       }
       setIsEditing(false);
     } catch (err) {
-      console.error('Update failed:', err); // Log any errors
+      console.error('Update failed:', err);
       setError('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
@@ -99,6 +102,38 @@ export default function UserProfilePopout({
     setBio(currentUser.bio || '');
     setIsEditing(false);
     setError('');
+  };
+
+  // New function to handle DM creation/navigation
+  const handleSendDM = async () => {
+    if (!onNavigateToDM || isCurrentUser) return;
+    
+    try {
+      setIsDMLoading(true);
+      setError('');
+      
+      // First, check if a DM channel already exists
+      const checkResponse = await api.get(`/channels/dm/check/${user.id}`);
+      const existingChannelId = checkResponse.data.channel_id;
+      
+      if (existingChannelId) {
+        // If DM exists, navigate to it
+        onNavigateToDM(existingChannelId);
+        onClose();
+      } else {
+        // If no DM exists, create a new one
+        const createResponse = await api.post('/channels/dm', {
+          user_ids: [user.id]
+        });
+        onNavigateToDM(createResponse.data.id);
+        onClose();
+      }
+    } catch (err) {
+      console.error('Failed to handle DM:', err);
+      setError('Failed to open direct message. Please try again.');
+    } finally {
+      setIsDMLoading(false);
+    }
   };
 
   return (
@@ -211,10 +246,11 @@ export default function UserProfilePopout({
                   </button>
                 ) : (
                   <button
-                    onClick={() => {}}  // To be implemented
-                    className="mt-4 flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700"
+                    onClick={handleSendDM}
+                    disabled={isDMLoading}
+                    className="mt-4 flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    Send Direct Message
+                    {isDMLoading ? 'Opening Chat...' : 'Send Direct Message'}
                   </button>
                 )}
               </div>

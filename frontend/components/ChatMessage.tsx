@@ -45,9 +45,10 @@ interface ChatMessageProps {
   channelId: number;
   onMessageUpdate: (updatedMessage: Message) => void;
   onMessageDelete: (messageId: number) => void;
+  onNavigateToDM?: (channelId: number) => void;
 }
 
-export default function ChatMessage({ message, currentUserId, channelId, onMessageUpdate, onMessageDelete }: ChatMessageProps) {
+export default function ChatMessage({ message, currentUserId, channelId, onMessageUpdate, onMessageDelete, onNavigateToDM }: ChatMessageProps) {
   const api = useApi();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
@@ -326,6 +327,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
           user={user}
           isCurrentUser={message.user_id === currentUserId}
           onClose={() => setShowProfile(false)}
+          onNavigateToDM={onNavigateToDM}
         />
       )}
 

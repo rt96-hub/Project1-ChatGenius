@@ -211,6 +211,56 @@ Updates the name of the currently authenticated user.
 }
 ```
 
+### 6. List Users by Last DM
+```http
+GET /users/by-last-dm?skip=0&limit=100
+```
+
+Returns a list of users ordered by their last one-on-one DM interaction with the current user. Only includes users who have or could have a one-on-one DM with the current user. Users with no DM history appear first, followed by users ordered by ascending date of last DM (most recent DM appears last).
+
+**Important Notes:**
+- Only includes one-on-one DMs (channels with exactly 2 users)
+- Each user pair will have at most one DM channel
+- Group DMs are not included in this endpoint
+
+**Query Parameters:**
+- `skip` (optional): Number of records to skip (default: 0)
+- `limit` (optional): Maximum number of records to return (default: 100)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "user": {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg",
+            "auth0_id": "auth0|234567890",
+            "is_active": true,
+            "created_at": "2024-01-07T12:00:00Z",
+            "bio": null
+        },
+        "last_dm_at": null,     // No DM history
+        "channel_id": null      // No DM channel exists yet
+    },
+    {
+        "user": {
+            "id": 3,
+            "email": "user3@example.com",
+            "name": "User Three",
+            "picture": "https://example.com/picture3.jpg",
+            "auth0_id": "auth0|345678901",
+            "is_active": true,
+            "created_at": "2024-01-07T12:00:00Z",
+            "bio": null
+        },
+        "last_dm_at": "2024-01-08T10:00:00Z",  // Last DM was on this date
+        "channel_id": 123                       // ID of their one-on-one DM channel
+    }
+]
+```
+
 ## Channel Management
 
 ### 1. Create Channel
@@ -958,6 +1008,28 @@ Creates a new DM (Direct Message) channel with multiple users. DM channels are a
 **Error Responses:**
 - `400 Bad Request`: If the creator is included in user_ids or if any user ID is invalid
 - `401 Unauthorized`: If the user is not authenticated 
+
+### Check Existing DM Channel
+```http
+GET /channels/dm/check/{other_user_id}
+```
+
+Checks if there's an existing one-on-one DM channel between the current user and another user. This is useful to avoid creating duplicate DM channels between the same users.
+
+**Parameters:**
+- `other_user_id`: The ID of the user to check for an existing DM channel with
+
+**Response (200 OK):**
+```json
+{
+    "channel_id": 123  // ID of the existing DM channel, or null if none exists
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized`: If the user is not authenticated
+- `404 Not Found`: If the other user doesn't exist
+- `500 Internal Server Error`: If there's a server error
 
 ### 2. List User's DMs
 ```http

@@ -11,6 +11,7 @@ interface ChatAreaProps {
   channelId: number | null;
   onChannelUpdate?: () => void;
   onChannelDelete?: () => void;
+  onNavigateToDM?: (channelId: number) => void;
 }
 
 interface Message {
@@ -48,7 +49,7 @@ interface Message {
   }>;
 }
 
-export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }: ChatAreaProps) {
+export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, onNavigateToDM }: ChatAreaProps) {
   const api = useApi();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -491,6 +492,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete }
               channelId={channelId}
               onMessageUpdate={handleMessageUpdate}
               onMessageDelete={handleMessageDelete}
+              onNavigateToDM={onNavigateToDM}
             />
           ))}
           <div ref={messagesEndRef} />

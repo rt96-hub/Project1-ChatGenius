@@ -375,5 +375,103 @@ def get_user_dms(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     
     return query.all()
 
+def get_users_by_last_dm(db: Session, current_user_id: int, skip: int = 0, limit: int = 100):
+    """Get users ordered by their last one-on-one DM interaction with the current user.
+    Users with no DM history appear first (NULL last_message_at),
+    followed by users ordered by ascending last message date.
+    Only includes one-on-one DMs (channels with exactly 2 users)."""
+    
+    # Subquery to get one-on-one DM channels shared between users
+    shared_dms = (
+        db.query(models.Channel.id.label('channel_id'))
+        .join(models.UserChannel, models.Channel.id == models.UserChannel.channel_id)
+        .filter(models.Channel.is_dm == True)
+        .filter(models.UserChannel.user_id == current_user_id)
+        .filter(
+            db.query(func.count('*'))
+            .select_from(models.UserChannel)
+            .filter(models.UserChannel.channel_id == models.Channel.id)
+            .correlate(models.Channel)  # Add this line
+            .as_scalar() == 2
+        )
+        .subquery()
+    )
+    
+    # Subquery to get the other user's ID and channel ID for each one-on-one DM
+    user_channels = (
+        db.query(
+            models.UserChannel.user_id,
+            models.UserChannel.channel_id
+        )
+        .filter(models.UserChannel.channel_id.in_(db.query(shared_dms.c.channel_id)))
+        .filter(models.UserChannel.user_id != current_user_id)
+        .subquery()
+    )
+    
+    # Subquery to get the last message date for each channel
+    last_message_dates = (
+        db.query(
+            models.Message.channel_id,
+            func.max(models.Message.created_at).label('last_message_at')
+        )
+        .filter(models.Message.channel_id.in_(db.query(shared_dms.c.channel_id)))
+        .group_by(models.Message.channel_id)
+        .subquery()
+    )
+    
+    # Query all users except current user, with their last DM interaction date and channel ID
+    query = (
+        db.query(
+            models.User,
+            last_message_dates.c.last_message_at,
+            user_channels.c.channel_id
+        )
+        .outerjoin(user_channels, models.User.id == user_channels.c.user_id)
+        .outerjoin(
+            last_message_dates,
+            user_channels.c.channel_id == last_message_dates.c.channel_id
+        )
+        .filter(models.User.id != current_user_id)
+        .order_by(last_message_dates.c.last_message_at.asc().nullsfirst())
+        .offset(skip)
+        .limit(limit)
+    )
+    
+    # Execute query and format results
+    results = query.all()
+    
+    return [
+        {
+            "user": user,
+            "last_dm_at": last_dm_at.isoformat() if last_dm_at else None,
+            "channel_id": channel_id
+        }
+        for user, last_dm_at, channel_id in results
+    ]
+
+def get_existing_dm_channel(db: Session, user1_id: int, user2_id: int) -> int:
+    """Check if there's an existing one-on-one DM channel between two users.
+    Returns the channel_id if found, None otherwise."""
+    
+    # Find channels that both users are members of
+    shared_channels = (
+        db.query(models.Channel.id)
+        .join(models.UserChannel, models.Channel.id == models.UserChannel.channel_id)
+        .filter(models.Channel.is_dm == True)  # Must be a DM channel
+        .filter(models.UserChannel.user_id.in_([user1_id, user2_id]))
+        .group_by(models.Channel.id)
+        .having(func.count(models.UserChannel.user_id) == 2)  # Must have exactly 2 members
+    )
+    
+    # From these channels, find one where these are the only two members
+    dm_channel = (
+        db.query(models.Channel.id)
+        .filter(models.Channel.id.in_(shared_channels))
+        .filter(~models.Channel.users.any(~models.User.id.in_([user1_id, user2_id])))  # No other members
+        .first()
+    )
+    
+    return dm_channel[0] if dm_channel else None
+
 # TODO: Add more CRUD operations for channels, messages, etc.
 

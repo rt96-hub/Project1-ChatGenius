@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import type { ChannelMember, ChannelRole } from '../types/channel';
 import ConfirmDialog from './ConfirmDialog';
+import UserProfilePopout from './UserProfilePopout';
 
 interface MembersListProps {
     members: ChannelMember[];
@@ -9,6 +10,7 @@ interface MembersListProps {
     isOwner: boolean;
     onUpdateRole: (userId: number, role: ChannelRole) => void;
     onRemoveMember: (userId: number) => void;
+    onNavigateToDM?: (channelId: number) => void;
 }
 
 export default function MembersList({
@@ -16,10 +18,12 @@ export default function MembersList({
     currentUserId,
     isOwner,
     onUpdateRole,
-    onRemoveMember
+    onRemoveMember,
+    onNavigateToDM
 }: MembersListProps) {
     const [selectedMember, setSelectedMember] = useState<ChannelMember | null>(null);
     const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+    const [showProfile, setShowProfile] = useState<ChannelMember | null>(null);
 
     const handleRemove = (member: ChannelMember) => {
         setSelectedMember(member);
@@ -41,7 +45,10 @@ export default function MembersList({
                     {members.map((member) => (
                         <li key={member.id} className="py-4">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center min-w-0 gap-x-3">
+                                <div 
+                                    className="flex items-center min-w-0 gap-x-3 cursor-pointer"
+                                    onClick={() => setShowProfile(member)}
+                                >
                                     {member.picture ? (
                                         <img 
                                             src={member.picture} 
@@ -101,6 +108,15 @@ export default function MembersList({
                     ))}
                 </ul>
             </div>
+
+            {showProfile && (
+                <UserProfilePopout
+                    user={showProfile}
+                    isCurrentUser={showProfile.id === currentUserId}
+                    onClose={() => setShowProfile(null)}
+                    onNavigateToDM={onNavigateToDM}
+                />
+            )}
 
             <ConfirmDialog
                 isOpen={showRemoveConfirm}
