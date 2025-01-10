@@ -81,7 +81,9 @@
    - Implement direct messaging system
    - Add file sharing capabilities
    - Develop user presence tracking
-   - Finish thread support UI components 
+   - Finish thread support UI components
+   - Data population for testing and initial user experience
+   - Robust testing suite
 
 ## Learnings
 
