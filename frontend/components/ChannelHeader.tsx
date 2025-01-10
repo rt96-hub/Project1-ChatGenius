@@ -5,7 +5,7 @@ import {
     UsersIcon,
     Cog6ToothIcon
 } from '@heroicons/react/24/outline';
-import { useApi } from '@/hooks/useApi';
+//import { useApi } from '@/hooks/useApi';
 import ChannelSettingsModal from './ChannelSettingsModal';
 import type { Channel, ChannelRole } from '../types/channel';
 

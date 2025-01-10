@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
     HashtagIcon, 
     PlusIcon, 
-    UserGroupIcon, 
     LockClosedIcon,
     KeyIcon,
     ChatBubbleLeftRightIcon,
@@ -33,10 +32,10 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
     const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
     const [showJoinDialog, setShowJoinDialog] = useState(false);
     const [joinCode, setJoinCode] = useState('');
-    const { connectionStatus, addMessageListener } = useConnection();
+    const { addMessageListener } = useConnection();
     const currentUserId = user?.id;
 
-    const fetchChannels = async () => {
+    const fetchChannels = useCallback(async () => {
         try {
             const response = await api.get('/channels/me');
             const allChannels = response.data;
@@ -44,16 +43,16 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         } catch (error) {
             console.error('Failed to fetch channels:', error);
         }
-    };
+    }, [api]);
 
-    const fetchDmChannels = async () => {
+    const fetchDmChannels = useCallback(async () => {
         try {
             const response = await api.get('/channels/me/dms?limit=5');
             setDmChannels(response.data);
         } catch (error) {
             console.error('Failed to fetch DM channels:', error);
         }
-    };
+    }, [api]);
 
     useEffect(() => {
         fetchChannels();
@@ -91,7 +90,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         return () => {
             removeListener();
         };
-    }, [refreshTrigger]);
+    }, [refreshTrigger, addMessageListener, fetchChannels, fetchDmChannels]);
 
     const handleChannelSelect = (channelId: number) => {
         setSelectedChannelId(channelId);

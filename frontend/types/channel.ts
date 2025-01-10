@@ -10,6 +10,18 @@ export interface Channel {
     is_private: boolean;
     is_dm: boolean;
     join_code: string | null;
-    users: User[];
+    users: ChannelMember[];
     messages: Message[];
+    member_count: number;
+    role?: ChannelRole;
+}
+
+export type ChannelRole = 'owner' | 'moderator' | 'member';
+
+export interface ChannelMember {
+    id: number;
+    name: string;
+    email: string;
+    picture?: string;
+    role: ChannelRole;
 }

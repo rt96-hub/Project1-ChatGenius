@@ -3,7 +3,7 @@ set -e
 
 # Function to check if database is ready
 check_db() {
-    python << END
+    python3 << END
 import sys
 import psycopg2
 import os

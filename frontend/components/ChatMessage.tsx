@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { PencilIcon, TrashIcon, FaceSmileIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
 import UserProfilePopout from './UserProfilePopout';
 import EmojiSelector from './EmojiSelector';
@@ -110,7 +111,6 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
 
   const getEmojiSelectorPosition = () => {
     if (!messageRef.current) return { top: 0, left: 0 };
-    const rect = messageRef.current.getBoundingClientRect();
     const buttonRect = messageRef.current.querySelector('button[title="Add reaction"]')?.getBoundingClientRect();
     
     if (!buttonRect) return { top: 0, left: 0 };
@@ -210,10 +210,12 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
           className="flex-none focus:outline-none"
         >
           {user.picture ? (
-            <img 
+            <Image 
               src={user.picture} 
               alt={user.name} 
-              className="w-8 h-8 rounded-full object-cover"
+              width={32}
+              height={32}
+              className="rounded-full object-cover"
             />
           ) : (
             <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white font-medium text-sm">

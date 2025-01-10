@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
-import { useApi } from '@/hooks/useApi';
 import type { Channel } from '../types/channel';
 
 interface ViewDMsModalProps {

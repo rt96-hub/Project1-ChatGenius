@@ -61,3 +61,4 @@ TODO List:
 28. don't let users delete dm channels at all, will keep allowing deletion for testing purposes
 
 29. NOT IMPORTANT, maybe dm channel isnt created until a message is sent, or it wont appear in the other users channel list until a message is sent
+30. file upload button to the left of the message input field

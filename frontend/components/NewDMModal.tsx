@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
 
 interface User {
@@ -29,13 +30,7 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchUsers();
-        }
-    }, [isOpen]);
-
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await api.get('/users/by-last-dm');
@@ -47,7 +42,13 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [api]);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchUsers();
+        }
+    }, [isOpen, fetchUsers]);
 
     const handleDMAction = async (userId: number, existingChannelId: number | null) => {
         try {
@@ -103,10 +104,12 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
                                         className="w-full text-left px-4 py-3 rounded-md hover:bg-gray-100 transition-colors flex items-center gap-3"
                                     >
                                         {user.picture && (
-                                            <img
+                                            <Image
                                                 src={user.picture}
                                                 alt={user.name}
-                                                className="w-8 h-8 rounded-full"
+                                                width={32}
+                                                height={32}
+                                                className="rounded-full"
                                             />
                                         )}
                                         <div className="flex-1">

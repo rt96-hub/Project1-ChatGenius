@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useApi } from '@/hooks/useApi';
+import Image from 'next/image';
 
 interface Reaction {
   id: number;
@@ -37,7 +38,7 @@ export default function EmojiSelector({ onSelect, onClose, position }: EmojiSele
     };
 
     fetchReactions();
-  }, []); // Only run once on mount
+  }, [api]); // Add api dependency
 
   // Memoize the mouse move handler
   const handleMouseMove = useCallback((event: MouseEvent) => {
@@ -112,10 +113,12 @@ export default function EmojiSelector({ onSelect, onClose, position }: EmojiSele
               title={reaction.code}
             >
               {reaction.image_url ? (
-                <img
+                <Image
                   src={reaction.image_url}
                   alt={reaction.code}
-                  className="w-6 h-6 object-contain"
+                  width={24}
+                  height={24}
+                  className="object-contain"
                 />
               ) : (
                 <span className="text-xl leading-none">{emojiMap[reaction.code] || '❓'}</span>

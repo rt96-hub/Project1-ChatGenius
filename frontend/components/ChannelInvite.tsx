@@ -7,7 +7,7 @@ interface ChannelInviteProps {
     onGenerateInvite: () => void;
 }
 
-export default function ChannelInvite({ channelId, joinCode, onGenerateInvite }: ChannelInviteProps) {
+export default function ChannelInvite({ joinCode, onGenerateInvite }: ChannelInviteProps) {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = async () => {

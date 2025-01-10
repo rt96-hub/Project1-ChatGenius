@@ -7,4 +7,4 @@ docker-compose -f docker-compose.local.yml down
 # docker volume rm $(docker volume ls -q)
 
 # Build and start containers
-docker-compose -f docker-compose.local.yml up --build
+docker-compose -f docker-compose.local.yml --env-file .env.local up --build

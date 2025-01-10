@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import UserProfilePopout from './UserProfilePopout';
-import { useApi } from '@/hooks/useApi';
 
 export type ConnectionStatus = 'connected' | 'idle' | 'away' | 'disconnected' | 'connecting';
 
@@ -66,10 +66,12 @@ export default function ProfileStatus({ user, connectionStatus, onProfileUpdate,
       >
         {/* Profile Circle */}
         {user.picture ? (
-          <img 
+          <Image 
             src={user.picture} 
             alt={user.name} 
-            className="w-9 h-9 rounded-full object-cover shadow-sm"
+            width={36}
+            height={36}
+            className="rounded-full object-cover shadow-sm"
           />
         ) : (
           <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-medium text-sm shadow-sm">
