@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List, Dict, Set
@@ -20,11 +20,11 @@ MAX_CONNECTIONS_PER_USER = int(os.getenv('MAX_WEBSOCKET_CONNECTIONS_PER_USER', '
 MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000'))
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
 
-ROOT_PATH = os.getenv('ROOT_PATH', '')  # Empty string for local dev, '/api' for production
+# Create the main app without root_path
+app = FastAPI()
 
-app = FastAPI(
-    root_path=ROOT_PATH
-)
+# Create an API router for all your routes
+api_router = APIRouter()
 
 # Enable CORS
 app.add_middleware(
@@ -172,7 +172,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # Auth endpoints
-@app.post("/auth/sync", response_model=schemas.User)
+@api_router.post("/auth/sync", response_model=schemas.User)
 async def sync_auth0_user_endpoint(
     request: Request,
     user_data: schemas.UserCreate,
@@ -214,7 +214,7 @@ async def sync_auth0_user_endpoint(
             detail=f"Error syncing user: {str(e)}"
         )
 
-@app.get("/auth/verify", response_model=dict)
+@api_router.get("/auth/verify", response_model=dict)
 async def verify_auth(
     request: Request,
     db: Session = Depends(get_db)
@@ -258,7 +258,7 @@ async def verify_auth(
             detail=f"Error verifying user: {str(e)}"
         )
 
-@app.websocket("/ws")
+@api_router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
     token: str,
@@ -406,7 +406,7 @@ async def websocket_endpoint(
         await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
 
 # User endpoints
-@app.get("/users/me", response_model=schemas.User)
+@api_router.get("/users/me", response_model=schemas.User)
 async def read_users_me(
     request: Request,
     current_user: models.User = Depends(get_current_user)
@@ -421,7 +421,7 @@ async def read_users_me(
             detail=f"Error getting current user: {str(e)}"
         )
 
-@app.get("/users/by-last-dm", response_model=List[schemas.UserWithLastDM])
+@api_router.get("/users/by-last-dm", response_model=List[schemas.UserWithLastDM])
 def read_users_by_last_dm(
     skip: int = 0,
     limit: int = 100,
@@ -438,7 +438,7 @@ def read_users_by_last_dm(
         limit=limit
     )
 
-@app.get("/users/", response_model=List[schemas.User])
+@api_router.get("/users/", response_model=List[schemas.User])
 def read_users(
     skip: int = 0,
     limit: int = 100,
@@ -447,7 +447,7 @@ def read_users(
 ):
     return crud.get_users(db, skip=skip, limit=limit)
 
-@app.get("/users/{user_id}", response_model=schemas.User)
+@api_router.get("/users/{user_id}", response_model=schemas.User)
 def read_user(
     user_id: int,
     db: Session = Depends(get_db),
@@ -458,7 +458,7 @@ def read_user(
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
-@app.put("/users/me/bio", response_model=schemas.User)
+@api_router.put("/users/me/bio", response_model=schemas.User)
 async def update_user_bio(
     bio_update: schemas.UserBioUpdate,
     db: Session = Depends(get_db),
@@ -477,7 +477,7 @@ async def update_user_bio(
             detail=f"Error updating user bio: {str(e)}"
         )
 
-@app.put("/users/me/name", response_model=schemas.User)
+@api_router.put("/users/me/name", response_model=schemas.User)
 async def update_user_name(
     name_update: schemas.UserNameUpdate,
     db: Session = Depends(get_db),
@@ -497,7 +497,7 @@ async def update_user_name(
         )
 
 # Channel endpoints
-@app.post("/channels/", response_model=schemas.Channel)
+@api_router.post("/channels/", response_model=schemas.Channel)
 async def create_channel_endpoint(
     channel: schemas.ChannelCreate,
     db: Session = Depends(get_db),
@@ -510,7 +510,7 @@ async def create_channel_endpoint(
     
     return db_channel
 
-@app.get("/channels/me", response_model=List[schemas.Channel])
+@api_router.get("/channels/me", response_model=List[schemas.Channel])
 def read_user_channels(
     skip: int = 0,
     limit: int = 100,
@@ -520,7 +520,7 @@ def read_user_channels(
     channels = crud.get_user_channels(db, user_id=current_user.id, skip=skip, limit=limit)
     return channels
 
-@app.get("/channels/{channel_id}", response_model=schemas.Channel)
+@api_router.get("/channels/{channel_id}", response_model=schemas.Channel)
 def read_channel(
     channel_id: int,
     db: Session = Depends(get_db),
@@ -533,7 +533,7 @@ def read_channel(
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     return db_channel
 
-@app.put("/channels/{channel_id}", response_model=schemas.Channel)
+@api_router.put("/channels/{channel_id}", response_model=schemas.Channel)
 async def update_channel_endpoint(
     channel_id: int,
     channel_update: schemas.ChannelCreate,
@@ -564,7 +564,7 @@ async def update_channel_endpoint(
     
     return updated_channel
 
-@app.delete("/channels/{channel_id}", response_model=schemas.Channel)
+@api_router.delete("/channels/{channel_id}", response_model=schemas.Channel)
 def delete_channel_endpoint(
     channel_id: int,
     db: Session = Depends(get_db),
@@ -577,7 +577,7 @@ def delete_channel_endpoint(
         raise HTTPException(status_code=403, detail="Only the channel owner can delete the channel")
     return crud.delete_channel(db=db, channel_id=channel_id)
 
-@app.post("/channels/{channel_id}/messages", response_model=schemas.Message)
+@api_router.post("/channels/{channel_id}/messages", response_model=schemas.Message)
 def create_message_endpoint(
     channel_id: int,
     message: schemas.MessageCreate,
@@ -597,7 +597,7 @@ def create_message_endpoint(
         message=message
     )
 
-@app.get("/channels/{channel_id}/messages", response_model=schemas.MessageList)
+@api_router.get("/channels/{channel_id}/messages", response_model=schemas.MessageList)
 def read_channel_messages(
     channel_id: int,
     skip: int = 0,
@@ -620,7 +620,7 @@ def read_channel_messages(
         include_reactions=include_reactions
     )
 
-@app.put("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
+@api_router.put("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
 async def update_message_endpoint(
     channel_id: int,
     message_id: int,
@@ -662,7 +662,7 @@ async def update_message_endpoint(
     
     return updated_message
 
-@app.delete("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
+@api_router.delete("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
 async def delete_message_endpoint(
     channel_id: int,
     message_id: int,
@@ -691,7 +691,7 @@ async def delete_message_endpoint(
     
     return deleted_message
 
-@app.get("/channels/{channel_id}/members", response_model=List[schemas.UserInChannel])
+@api_router.get("/channels/{channel_id}/members", response_model=List[schemas.UserInChannel])
 def get_channel_members_endpoint(
     channel_id: int,
     db: Session = Depends(get_db),
@@ -704,7 +704,7 @@ def get_channel_members_endpoint(
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     return crud.get_channel_members(db, channel_id=channel_id)
 
-@app.delete("/channels/{channel_id}/members/{user_id}")
+@api_router.delete("/channels/{channel_id}/members/{user_id}")
 async def remove_channel_member_endpoint(
     channel_id: int,
     user_id: int,
@@ -722,7 +722,7 @@ async def remove_channel_member_endpoint(
         return {"message": "Member removed successfully"}
     raise HTTPException(status_code=404, detail="Member not found")
 
-@app.put("/channels/{channel_id}/privacy", response_model=schemas.Channel)
+@api_router.put("/channels/{channel_id}/privacy", response_model=schemas.Channel)
 async def update_channel_privacy_endpoint(
     channel_id: int,
     privacy_update: schemas.ChannelPrivacyUpdate,
@@ -739,7 +739,7 @@ async def update_channel_privacy_endpoint(
     await manager.broadcast_privacy_updated(channel_id, privacy_update.is_private)
     return updated_channel
 
-@app.post("/channels/{channel_id}/invite", response_model=schemas.ChannelInvite)
+@api_router.post("/channels/{channel_id}/invite", response_model=schemas.ChannelInvite)
 def create_channel_invite_endpoint(
     channel_id: int,
     db: Session = Depends(get_db),
@@ -756,7 +756,7 @@ def create_channel_invite_endpoint(
         return schemas.ChannelInvite(join_code=join_code, channel_id=channel_id)
     raise HTTPException(status_code=500, detail="Failed to create invite")
 
-@app.get("/channels/{channel_id}/role", response_model=schemas.ChannelRole)
+@api_router.get("/channels/{channel_id}/role", response_model=schemas.ChannelRole)
 def get_channel_role_endpoint(
     channel_id: int,
     user_id: int,
@@ -774,7 +774,7 @@ def get_channel_role_endpoint(
         raise HTTPException(status_code=404, detail="Role not found")
     return role
 
-@app.put("/channels/{channel_id}/roles/{user_id}", response_model=schemas.ChannelRole)
+@api_router.put("/channels/{channel_id}/roles/{user_id}", response_model=schemas.ChannelRole)
 async def update_channel_role_endpoint(
     channel_id: int,
     user_id: int,
@@ -794,7 +794,7 @@ async def update_channel_role_endpoint(
     await manager.broadcast_role_updated(channel_id, user_id, role_update.role)
     return updated_role
 
-@app.post("/channels/{channel_id}/leave")
+@api_router.post("/channels/{channel_id}/leave")
 async def leave_channel_endpoint(
     channel_id: int,
     db: Session = Depends(get_db),
@@ -810,7 +810,7 @@ async def leave_channel_endpoint(
     raise HTTPException(status_code=500, detail="Failed to leave channel")
 
 # Reaction endpoints
-@app.get("/reactions/", response_model=List[schemas.Reaction])
+@api_router.get("/reactions/", response_model=List[schemas.Reaction])
 def list_reactions(
     skip: int = 0,
     limit: int = 100,
@@ -820,7 +820,7 @@ def list_reactions(
     """Get all available reactions"""
     return crud.get_all_reactions(db, skip=skip, limit=limit)
 
-@app.post("/channels/{channel_id}/messages/{message_id}/reactions", response_model=schemas.MessageReaction)
+@api_router.post("/channels/{channel_id}/messages/{message_id}/reactions", response_model=schemas.MessageReaction)
 async def add_reaction_endpoint(
     channel_id: int,
     message_id: int,
@@ -880,7 +880,7 @@ async def add_reaction_endpoint(
     
     return message_reaction
 
-@app.delete("/channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}")
+@api_router.delete("/channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}")
 async def remove_reaction_endpoint(
     channel_id: int,
     message_id: int,
@@ -916,7 +916,7 @@ async def remove_reaction_endpoint(
     
     raise HTTPException(status_code=404, detail="Reaction not found")
 
-@app.post("/channels/dm", response_model=schemas.Channel)
+@api_router.post("/channels/dm", response_model=schemas.Channel)
 async def create_dm_endpoint(
     dm: schemas.DMCreate,
     db: Session = Depends(get_db),
@@ -951,7 +951,7 @@ async def create_dm_endpoint(
     
     return db_channel
 
-@app.get("/channels/me/dms", response_model=List[schemas.Channel])
+@api_router.get("/channels/me/dms", response_model=List[schemas.Channel])
 def read_user_dms(
     skip: int = 0,
     limit: int = 100,
@@ -961,7 +961,7 @@ def read_user_dms(
     """Get all DM channels for the current user, ordered by most recent message."""
     return crud.get_user_dms(db, user_id=current_user.id, skip=skip, limit=limit)
 
-@app.get("/channels/dm/check/{other_user_id}", response_model=schemas.DMCheckResponse)
+@api_router.get("/channels/dm/check/{other_user_id}", response_model=schemas.DMCheckResponse)
 def check_existing_dm_endpoint(
     other_user_id: int,
     db: Session = Depends(get_db),
@@ -986,6 +986,9 @@ def check_existing_dm_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error checking DM channel: {str(e)}"
         )
+
+# Include the router with the prefix
+app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))
 
 if __name__ == "__main__":
     import uvicorn
