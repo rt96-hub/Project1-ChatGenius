@@ -2,9 +2,11 @@
 
 import axios from 'axios';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 // Create an axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: API_URL,
 });
 
 // Create a function to get the API instance with auth configuration
@@ -14,4 +16,4 @@ export function createAuthenticatedApi(token: string) {
   return api;
 }
 
-export default api; 
+export default api;
