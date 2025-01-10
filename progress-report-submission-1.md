@@ -37,8 +37,8 @@
 - ✓ Basic channel membership tracking
 - ✓ Channel creation and management
 - ✓ Channel discovery mechanisms
-- ✓ Direct messages not implemented
-- ❌ Private channels not implemented
+- ✓ Direct messages implemented
+- ❌ Private channels not implemented meaningfully
 - ❌ Group direct messages not implemented
 - ❌ Complete role-based permissions system pending
 - ❌ User invitation management incomplete
@@ -52,9 +52,7 @@
 - ❌ File upload functionality
 - ❌ File storage system
 - ❌ File type detection and validation
-- ❌ Thumbnail generation
-- ❌ Full-text search implementation
-- ❌ File metadata indexing
+- ❌ File search implementation
 
 
 ## Implementation Notes
