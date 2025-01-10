@@ -20,7 +20,11 @@ MAX_CONNECTIONS_PER_USER = int(os.getenv('MAX_WEBSOCKET_CONNECTIONS_PER_USER', '
 MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000'))
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
 
-app = FastAPI()
+ROOT_PATH = os.getenv('ROOT_PATH', '')  # Empty string for local dev, '/api' for production
+
+app = FastAPI(
+    root_path=ROOT_PATH
+)
 
 # Enable CORS
 app.add_middleware(
@@ -28,7 +32,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         f"http://{os.getenv('EC2_PUBLIC_DNS')}:3000",
-        f"https://{os.getenv('EC2_PUBLIC_DNS')}:3000"
+        f"https://{os.getenv('EC2_PUBLIC_DNS')}:3000",
+        f"http://{os.getenv('EC2_PUBLIC_DNS')}",
+        f"https://{os.getenv('EC2_PUBLIC_DNS')}"
     ],
     allow_credentials=True,
     allow_methods=["*"],
