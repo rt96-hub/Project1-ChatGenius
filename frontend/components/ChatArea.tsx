@@ -415,19 +415,6 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     }
   };
 
-  const handleChannelUpdate = () => {
-    fetchChannelDetails();
-    if (onChannelUpdate) {
-      onChannelUpdate();
-    }
-  };
-
-  const handleChannelDelete = () => {
-    if (onChannelDelete) {
-      onChannelDelete();
-    }
-  };
-
   const handleMessageUpdate = (updatedMessage: Message) => {
     setMessages(prev => prev.map(msg => 
       msg.id === updatedMessage.id ? updatedMessage : msg
@@ -529,7 +516,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               <div className="flex items-center gap-2 text-sm text-gray-600">
                 <ArrowUturnLeftIcon className="h-4 w-4" />
                 <span>Replying to {replyingTo.user?.name}</span>
-                <span className="text-gray-400">"{replyingTo.content.substring(0, 50)}..."</span>
+                <span className="text-gray-400">&ldquo;{replyingTo.content.substring(0, 50)}...&rdquo;</span>
               </div>
               <button
                 onClick={() => setReplyingTo(null)}

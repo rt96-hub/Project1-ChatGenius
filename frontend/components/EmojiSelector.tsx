@@ -73,7 +73,7 @@ export default function EmojiSelector({ onSelect, onClose, position }: EmojiSele
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [handleMouseMove]); // Only depend on the memoized handler
+  }, [handleMouseMove, onClose]); // Added onClose to dependency array
 
   // Map emoji codes to actual emojis
   const emojiMap: { [key: string]: string } = {

@@ -252,154 +252,153 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
           )}
         </button>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <span className="font-medium truncate">
-                {user.name}
-              </span>
-              <span className="text-xs text-gray-500 flex-none">
-                {new Date(message.created_at).toLocaleTimeString()}
-                {message.updated_at && message.updated_at !== message.created_at && (
-                  <span className="ml-1 italic">
-                    (edited {new Date(message.updated_at).toLocaleTimeString()})
-                  </span>
-                )}
-              </span>
-              {Object.entries(groupedReactions).length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(groupedReactions).map(([reactionId, data]) => (
-                    <button
-                      key={reactionId}
-                      onClick={() => data.hasReacted ? handleRemoveReaction(Number(reactionId)) : handleAddReaction(Number(reactionId))}
-                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs ${
-                        data.hasReacted ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                      } hover:bg-gray-200 transition-colors`}
-                      title={data.users.map(u => u.name).join(', ')}
-                    >
-                      <span className="leading-none">{emojiMap[data.code] || '❓'}</span>
-                      <span className="leading-none">{data.count}</span>
-                    </button>
-                  ))}
-                </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="font-medium truncate">
+              {user.name}
+            </span>
+            <span className="text-xs text-gray-500 flex-none">
+              {new Date(message.created_at).toLocaleTimeString()}
+              {message.updated_at && message.updated_at !== message.created_at && (
+                <span className="ml-1 italic">
+                  (edited {new Date(message.updated_at).toLocaleTimeString()})
+                </span>
               )}
-            </div>
-
-            {isEditing ? (
-              <div className="mt-1">
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px] resize-none"
-                  autoFocus
-                />
-                <div className="flex gap-2 mt-2">
+            </span>
+            {Object.entries(groupedReactions).length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(groupedReactions).map(([reactionId, data]) => (
                   <button
-                    onClick={handleEdit}
-                    className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    key={reactionId}
+                    onClick={() => data.hasReacted ? handleRemoveReaction(Number(reactionId)) : handleAddReaction(Number(reactionId))}
+                    className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs ${
+                      data.hasReacted ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                    } hover:bg-gray-200 transition-colors`}
+                    title={data.users.map(u => u.name).join(', ')}
                   >
-                    Save
+                    <span className="leading-none">{emojiMap[data.code] || '❓'}</span>
+                    <span className="leading-none">{data.count}</span>
                   </button>
-                  <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditContent(message.content);
-                    }}
-                    className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-gray-800 break-words">{message.content}</p>
-            )}
-          </div>
-          
-          {/* Edit/Delete/Emoji buttons */}
-          {isHovered && !isEditing && (
-            <div className="absolute top-0 right-0 flex gap-1 bg-white shadow-sm border border-gray-100 rounded-md">
-              <button
-                onClick={() => setShowEmojiSelector(true)}
-                className="p-1 text-gray-500 hover:text-yellow-500 hover:bg-gray-50"
-                title="Add reaction"
-              >
-                <FaceSmileIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onReply?.(message)}
-                className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-50"
-                title="Reply to message"
-              >
-                <ArrowUturnLeftIcon className="h-4 w-4" />
-              </button>
-              {isOwner && (
-                <>
-                  <button
-                    onClick={() => {
-                      setIsEditing(true);
-                      setEditContent(message.content);
-                    }}
-                    className="p-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50"
-                    title="Edit message"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="p-1 text-gray-500 hover:text-red-600 hover:bg-gray-50"
-                    title="Delete message"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Only show replies section for root messages that have replies */}
-        {message.has_replies && message.parent_id === null && (
-          <div className="ml-11">
-            <button
-              onClick={handleToggleReplies}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-            >
-              {isLoadingReplies ? (
-                <span>Loading replies...</span>
-              ) : (
-                <>
-                  {showReplies ? (
-                    <ChevronUpIcon className="h-4 w-4" />
-                  ) : (
-                    <ChevronDownIcon className="h-4 w-4" />
-                  )}
-                  <span>
-                    {showReplies ? 'Hide replies' : 'Show replies'}
-                  </span>
-                </>
-              )}
-            </button>
-
-            {showReplies && (
-              <div className="mt-2 space-y-2 border-l-2 border-gray-200 pl-4">
-                {replies.map(reply => (
-                  <ChatMessage
-                    key={reply.id}
-                    message={reply}
-                    currentUserId={currentUserId}
-                    channelId={channelId}
-                    onMessageUpdate={onMessageUpdate}
-                    onMessageDelete={onMessageDelete}
-                    onNavigateToDM={onNavigateToDM}
-                    onReply={onReply}
-                  />
                 ))}
               </div>
             )}
           </div>
+
+          {isEditing ? (
+            <div className="mt-1">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px] resize-none"
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleEdit}
+                  className="px-3 py-1 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditContent(message.content);
+                  }}
+                  className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-800 break-words">{message.content}</p>
+          )}
+        </div>
+        
+        {/* Edit/Delete/Emoji buttons */}
+        {isHovered && !isEditing && (
+          <div className="absolute top-0 right-0 flex gap-1 bg-white shadow-sm border border-gray-100 rounded-md">
+            <button
+              onClick={() => setShowEmojiSelector(true)}
+              className="p-1 text-gray-500 hover:text-yellow-500 hover:bg-gray-50"
+              title="Add reaction"
+            >
+              <FaceSmileIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => onReply?.(message)}
+              className="p-1 text-gray-500 hover:text-blue-500 hover:bg-gray-50"
+              title="Reply to message"
+            >
+              <ArrowUturnLeftIcon className="h-4 w-4" />
+            </button>
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => {
+                    setIsEditing(true);
+                    setEditContent(message.content);
+                  }}
+                  className="p-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50"
+                  title="Edit message"
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleDelete}
+                  className="p-1 text-gray-500 hover:text-red-600 hover:bg-gray-50"
+                  title="Delete message"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Only show replies section for root messages that have replies */}
+      {message.has_replies && message.parent_id === null && (
+        <div className="ml-11">
+          <button
+            onClick={handleToggleReplies}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            {isLoadingReplies ? (
+              <span>Loading replies...</span>
+            ) : (
+              <>
+                {showReplies ? (
+                  <ChevronUpIcon className="h-4 w-4" />
+                ) : (
+                  <ChevronDownIcon className="h-4 w-4" />
+                )}
+                <span>
+                  {showReplies ? 'Hide replies' : 'Show replies'}
+                </span>
+              </>
+            )}
+          </button>
+
+          {showReplies && (
+            <div className="mt-2 space-y-2 border-l-2 border-gray-200 pl-4">
+              {replies.map(reply => (
+                <ChatMessage
+                  key={reply.id}
+                  message={reply}
+                  currentUserId={currentUserId}
+                  channelId={channelId}
+                  onMessageUpdate={onMessageUpdate}
+                  onMessageDelete={onMessageDelete}
+                  onNavigateToDM={onNavigateToDM}
+                  onReply={onReply}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Profile Popout */}
       {showProfile && (

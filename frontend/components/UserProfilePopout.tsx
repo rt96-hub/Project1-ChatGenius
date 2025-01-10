@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
+import Image from 'next/image';
 
 interface User {
   id: number;
@@ -56,7 +57,7 @@ export default function UserProfilePopout({
     };
 
     fetchUserData();
-  }, [user.id, isCurrentUser]);
+  }, [user.id, isCurrentUser, api]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,10 +157,12 @@ export default function UserProfilePopout({
             {/* Profile Picture */}
             <div className="flex justify-center">
               {currentUser.picture ? (
-                <img
+                <Image
                   src={currentUser.picture}
                   alt={`${currentUser.name}'s profile`}
-                  className="w-24 h-24 rounded-full object-cover"
+                  width={96}
+                  height={96}
+                  className="rounded-full object-cover"
                 />
               ) : (
                 <div className="w-24 h-24 rounded-full bg-indigo-600 flex items-center justify-center text-white text-2xl font-medium">
