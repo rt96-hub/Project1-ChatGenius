@@ -3,7 +3,7 @@ import models, schemas
 from sqlalchemy.orm import joinedload
 import logging
 from sqlalchemy import func
-from typing import List
+from typing import List, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -519,15 +519,16 @@ def find_last_reply_in_chain(db: Session, message_id: int) -> models.Message:
             return current_message
         current_message = reply
 
-def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.MessageReplyCreate) -> models.Message:
+def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.MessageReplyCreate) -> Tuple[models.Message, models.Message]:
     """
     Create a reply to a message. If the parent message already has a reply,
-    the new message will be attached to the last message in the reply chain.
+    the new message will be attached to the last message in the chain.
+    Returns a tuple of (reply_message, root_message).
     """
     # First check if parent message exists
     parent_message = db.query(models.Message).filter(models.Message.id == parent_id).first()
     if not parent_message:
-        return None
+        return None, None
     
     # Find the last message in the reply chain
     last_message = find_last_reply_in_chain(db, parent_id)
@@ -543,7 +544,16 @@ def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.Mes
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
-    return db_message
+    
+    # Get the root message (the one with no parent)
+    root_message = parent_message
+    while root_message.parent_id is not None:
+        root_message = db.query(models.Message).filter(models.Message.id == root_message.parent_id).first()
+    
+    # Refresh root message to ensure we have the latest data
+    db.refresh(root_message)
+    
+    return db_message, root_message
 
 def user_in_channel(db: Session, user_id: int, channel_id: int) -> bool:
     """Check if a user is a member of a channel."""

@@ -159,7 +159,25 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
                 if (prev.some(m => m.id === data.message.id)) {
                   return prev;
                 }
-                const newMessages = [...prev, data.message].sort((a, b) => 
+
+                // If this is a reply message, update the root message's has_replies flag
+                let updatedMessages = [...prev];
+                if (data.message.parent_id) {
+                  updatedMessages = updatedMessages.map(msg => {
+                    // Find the root message of the reply chain
+                    let currentMsg = data.message;
+                    while (currentMsg.parent_id && currentMsg.parent_id !== msg.id) {
+                      currentMsg = prev.find(m => m.id === currentMsg.parent_id) || currentMsg;
+                    }
+                    // If this is the root message, update its has_replies flag
+                    if (msg.id === currentMsg.parent_id) {
+                      return { ...msg, has_replies: true };
+                    }
+                    return msg;
+                  });
+                }
+
+                const newMessages = [...updatedMessages, data.message].sort((a, b) => 
                   new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
                 // If this is a message from the current user, trigger scroll

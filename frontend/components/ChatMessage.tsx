@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { PencilIcon, TrashIcon, FaceSmileIcon, ArrowUturnLeftIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
@@ -65,6 +65,24 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
   const [isLoadingReplies, setIsLoadingReplies] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
   const isOwner = message.user_id === currentUserId;
+
+  // Add useEffect to update replies when message is updated
+  useEffect(() => {
+    // Only update replies if the reply chain is open and this is a root message
+    if (showReplies && message.parent_id === null && message.has_replies) {
+      const fetchReplies = async () => {
+        try {
+          const response = await api.get(`/messages/${message.id}/reply-chain`);
+          // Filter out the root message since we're already displaying it
+          const replyChain = response.data.filter((m: Message) => m.id !== message.id);
+          setReplies(replyChain);
+        } catch (error) {
+          console.error('Failed to fetch reply chain:', error);
+        }
+      };
+      fetchReplies();
+    }
+  }, [message, showReplies, api]);
 
   // Memoize the handlers
   const handleAddReaction = useCallback(async (reactionId: number) => {

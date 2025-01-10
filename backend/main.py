@@ -990,6 +990,115 @@ def check_existing_dm_endpoint(
             detail=f"Error checking DM channel: {str(e)}"
         )
 
+@api_router.post("/channels/{channel_id}/messages/{parent_id}/reply", response_model=schemas.Message)
+async def create_message_reply_endpoint(
+    channel_id: int,
+    parent_id: int,
+    message: schemas.MessageReplyCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Creates a reply to a message. If the parent message already has a reply,
+    the new message will be attached to the last message in the reply chain."""
+    
+    # Verify channel access and message existence
+    channel = crud.get_channel(db, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if not crud.user_in_channel(db, current_user.id, channel_id):
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Verify parent message exists and belongs to this channel
+    parent_message = crud.get_message(db, message_id=parent_id)
+    if not parent_message:
+        raise HTTPException(status_code=404, detail="Parent message not found")
+    if parent_message.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Parent message does not belong to this channel")
+    
+    # Create the reply
+    reply, root_message = crud.create_reply(
+        db=db,
+        parent_id=parent_id,
+        user_id=current_user.id,
+        message=message
+    )
+    
+    if not reply or not root_message:
+        raise HTTPException(status_code=400, detail="Could not create reply")
+    
+    # Broadcast the new reply message to all users in the channel
+    message_data = {
+        "type": "message_created",
+        "message": {
+            "id": reply.id,
+            "content": reply.content,
+            "created_at": reply.created_at.isoformat(),
+            "updated_at": reply.updated_at.isoformat(),
+            "user_id": reply.user_id,
+            "channel_id": reply.channel_id,
+            "parent_id": reply.parent_id,
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "name": current_user.name,
+                "picture": current_user.picture
+            }
+        }
+    }
+    await manager.broadcast_to_channel(message_data, channel_id)
+    
+    # Also broadcast an update to the root message to show it has replies
+    root_message_data = {
+        "type": "message_update",
+        "channel_id": channel_id,
+        "message": {
+            "id": root_message.id,
+            "content": root_message.content,
+            "created_at": root_message.created_at.isoformat(),
+            "updated_at": root_message.updated_at.isoformat(),
+            "user_id": root_message.user_id,
+            "channel_id": root_message.channel_id,
+            "parent_id": root_message.parent_id,
+            "has_replies": True,
+            "user": {
+                "id": root_message.user.id,
+                "email": root_message.user.email,
+                "name": root_message.user.name,
+                "picture": root_message.user.picture
+            }
+        }
+    }
+    await manager.broadcast_to_channel(root_message_data, channel_id)
+    
+    return reply
+
+@api_router.get("/messages/{message_id}/reply-chain", response_model=List[schemas.Message])
+async def get_message_reply_chain_endpoint(
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Returns all messages in a reply chain for a given message ID.
+    This includes:
+    1. All parent messages (if the given message is a reply)
+    2. The message itself
+    3. All replies in the chain
+    Messages are ordered by created_at date (ascending)."""
+    
+    # Get the message to verify it exists and get its channel
+    message = crud.get_message(db, message_id=message_id)
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Verify user has access to the channel
+    if not crud.user_in_channel(db, current_user.id, message.channel_id):
+        raise HTTPException(status_code=403, detail="Not a member of the channel containing this message")
+    
+    # Get the reply chain
+    reply_chain = crud.get_message_reply_chain(db, message_id=message_id)
+    
+    return reply_chain
+
 # Include the router with the prefix
 app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))
 
