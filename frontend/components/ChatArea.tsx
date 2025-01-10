@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { PaperAirplaneIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, UsersIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import ChannelHeader from './ChannelHeader';
 import ChatMessage from './ChatMessage';
 import MemberListModal from './MemberListModal';
@@ -21,6 +21,8 @@ interface Message {
   updated_at?: string;
   user_id: number;
   channel_id: number;
+  parent_id: number | null;
+  parent?: Message | null;
   user?: {
     id: number;
     email: string;
@@ -67,6 +69,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   const currentChannelRef = useRef<number | null>(null);
   const { connectionStatus, sendMessage, addMessageListener } = useConnection();
   const [isUserSentMessage, setIsUserSentMessage] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -106,11 +109,17 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
 
       // Set up WebSocket message listener
       const removeListener = addMessageListener((data) => {
+        console.log('ChatArea received WebSocket message:', data);
         // Only process messages for the current channel
         if (data.channel_id === currentChannelRef.current) {
           switch (data.type) {
             case 'new_message':
+              console.log('Processing new message:', data.message);
               setMessages(prev => {
+                // Check if message already exists to prevent duplicates
+                if (prev.some(m => m.id === data.message.id)) {
+                  return prev;
+                }
                 const newMessages = [...prev, data.message].sort((a, b) => 
                   new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
@@ -353,38 +362,75 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     }
 
     try {
-      // Try WebSocket first with correct message format
-      try {
-        await sendMessage({
-          type: "new_message",
-          channel_id: channelId,
-          content: messageContent
-        });
-        // Note: We don't set isUserSentMessage here anymore, it's handled in the WebSocket listener
-      } catch (wsError) {
-        console.error('WebSocket send failed:', wsError);
-        // If WebSocket fails, fallback to HTTP
+      // For replies, use HTTP endpoint and then broadcast via WebSocket
+      if (replyingTo) {
+        console.log('Sending reply message to:', replyingTo.id);
         const response = await api.post(
-          `/channels/${channelId}/messages`,
+          `/channels/${channelId}/messages/${replyingTo.id}/reply`,
           { content: messageContent }
         );
         
-        // Add the new message to the messages array
         if (response.data) {
-          setMessages(prev => {
-            const newMessages = [...prev, response.data].sort((a, b) => 
-              new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-            );
-            setIsUserSentMessage(true); // Set flag after message is added in HTTP fallback
-            return newMessages;
+          console.log('Reply message created:', response.data);
+          // Broadcast the reply via WebSocket
+          try {
+            await sendMessage({
+              type: "new_message",
+              channel_id: channelId,
+              message: response.data
+            });
+            console.log('Reply broadcast via WebSocket');
+          } catch (wsError) {
+            console.error('WebSocket broadcast failed:', wsError);
+            // Even if WebSocket fails, we still have the HTTP response
+            setMessages(prev => {
+              // Check if message already exists
+              if (prev.some(m => m.id === response.data.id)) {
+                return prev;
+              }
+              const newMessages = [...prev, response.data].sort((a, b) => 
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              );
+              setIsUserSentMessage(true);
+              return newMessages;
+            });
+          }
+        }
+        setReplyingTo(null);
+      } else {
+        // For regular messages, try WebSocket first
+        try {
+          await sendMessage({
+            type: "new_message",
+            channel_id: channelId,
+            content: messageContent
           });
+        } catch (wsError) {
+          console.error('WebSocket send failed:', wsError);
+          // If WebSocket fails, fallback to HTTP
+          const response = await api.post(
+            `/channels/${channelId}/messages`,
+            { content: messageContent }
+          );
+          
+          if (response.data) {
+            setMessages(prev => {
+              // Check if message already exists
+              if (prev.some(m => m.id === response.data.id)) {
+                return prev;
+              }
+              const newMessages = [...prev, response.data].sort((a, b) => 
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              );
+              setIsUserSentMessage(true);
+              return newMessages;
+            });
+          }
         }
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Show error in input field
       setNewMessage(messageContent);
-      // You might want to add a toast notification here
     }
   };
 
@@ -493,11 +539,27 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               onMessageUpdate={handleMessageUpdate}
               onMessageDelete={handleMessageDelete}
               onNavigateToDM={onNavigateToDM}
+              onReply={setReplyingTo}
             />
           ))}
           <div ref={messagesEndRef} />
         </div>
         <div className="flex-none border-t border-gray-200 p-4 bg-white">
+          {replyingTo && (
+            <div className="mb-2 px-4 py-2 bg-gray-100 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <ArrowUturnLeftIcon className="h-4 w-4" />
+                <span>Replying to {replyingTo.user?.name}</span>
+                <span className="text-gray-400">"{replyingTo.content.substring(0, 50)}..."</span>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSendMessage} className="flex items-end gap-2">
             <textarea
               ref={textareaRef}

@@ -590,26 +590,29 @@ def create_message_endpoint(
     )
 
 @app.get("/channels/{channel_id}/messages", response_model=schemas.MessageList)
-def read_channel_messages(
+def get_channel_messages(
     channel_id: int,
     skip: int = 0,
     limit: int = 50,
     include_reactions: bool = False,
+    parent_only: bool = True,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: schemas.User = Depends(get_current_user)
 ):
-    db_channel = crud.get_channel(db, channel_id=channel_id)
-    if db_channel is None:
+    # Verify channel access
+    channel = crud.get_channel(db, channel_id)
+    if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
-    if current_user.id not in [user.id for user in db_channel.users]:
+    if not crud.user_in_channel(db, current_user.id, channel_id):
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     
     return crud.get_channel_messages(
-        db, 
-        channel_id=channel_id, 
-        skip=skip, 
+        db=db,
+        channel_id=channel_id,
+        skip=skip,
         limit=limit,
-        include_reactions=include_reactions
+        include_reactions=include_reactions,
+        parent_only=parent_only
     )
 
 @app.put("/channels/{channel_id}/messages/{message_id}", response_model=schemas.Message)
@@ -1030,6 +1033,34 @@ async def create_reply_endpoint(
     )
     
     return db_message
+
+@app.get("/messages/{message_id}/reply-chain", response_model=List[schemas.Message])
+async def get_message_reply_chain_endpoint(
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get all messages in a reply chain for a given message ID.
+    This includes parent messages (if the message is a reply) and all replies.
+    Messages are ordered by created_at date."""
+    
+    # First get the message to check permissions
+    message = crud.get_message(db, message_id=message_id)
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found"
+        )
+    
+    # Check if user has access to the channel
+    if not crud.user_in_channel(db, current_user.id, message.channel_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not a member of this channel"
+        )
+    
+    # Get the reply chain
+    return crud.get_message_reply_chain(db, message_id)
 
 if __name__ == "__main__":
     import uvicorn

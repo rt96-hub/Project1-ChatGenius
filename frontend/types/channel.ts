@@ -1,15 +1,26 @@
-import type { Message } from './message';
-import type { User } from './user';
+export type ChannelRole = 'owner' | 'moderator' | 'member';
 
 export interface Channel {
     id: number;
     name: string;
-    description: string;
+    description: string | null;
     owner_id: number;
     created_at: string;
     is_private: boolean;
-    is_dm: boolean;
     join_code: string | null;
-    users: User[];
-    messages: Message[];
+    is_dm?: boolean;
+    member_count: number;
+    users: Array<{
+        id: number;
+        email: string;
+        name: string;
+        picture?: string;
+        role?: ChannelRole;
+    }>;
+    messages: Array<{
+        id: number;
+        content: string;
+        created_at: string;
+        user_id: number;
+    }>;
 }

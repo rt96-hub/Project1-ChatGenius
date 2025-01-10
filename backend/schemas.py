@@ -64,6 +64,7 @@ class Message(MessageBase):
     user_id: int
     channel_id: int
     parent_id: Optional[int] = None
+    has_replies: bool = False
     user: UserInChannel
     reactions: List[MessageReaction] = []
     parent: Optional['Message'] = None

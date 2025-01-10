@@ -83,6 +83,7 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        console.log('WebSocket received message:', data);
         // Notify all listeners of the message
         messageListeners.current.forEach(listener => listener(data));
       };
@@ -148,6 +149,7 @@ export function ConnectionProvider({ children }: { children: React.ReactNode }) 
 
   const sendMessage = async (message: any) => {
     if (websocketRef.current?.readyState === WebSocket.OPEN) {
+      console.log('Sending WebSocket message:', message);
       websocketRef.current.send(JSON.stringify(message));
     } else {
       console.error('WebSocket is not connected');

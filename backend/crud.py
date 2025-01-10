@@ -3,6 +3,7 @@ import models, schemas
 from sqlalchemy.orm import joinedload
 import logging
 from sqlalchemy import func
+from typing import List
 
 logger = logging.getLogger(__name__)
 
@@ -109,13 +110,19 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
     db.refresh(db_message)
     return db_message
 
-def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50, include_reactions: bool = False):
-    query = (db.query(models.Message)
-             .filter(models.Message.channel_id == channel_id)
-             .options(
-                 joinedload(models.Message.user),
-                 joinedload(models.Message.parent).joinedload(models.Message.user)  # Load parent message with its user
-             ))
+def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50, include_reactions: bool = False, parent_only: bool = True):
+    # Start with base query
+    query = db.query(models.Message).filter(models.Message.channel_id == channel_id)
+    
+    # Add parent_only filter if requested
+    if parent_only:
+        query = query.filter(models.Message.parent_id.is_(None))
+    
+    # Add eager loading for user and parent
+    query = query.options(
+        joinedload(models.Message.user),
+        joinedload(models.Message.parent).joinedload(models.Message.user)
+    )
     
     if include_reactions:
         # Add eager loading for reactions and their related data
@@ -126,16 +133,36 @@ def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int
             .joinedload(models.MessageReaction.user)
         )
     
+    # Get messages with pagination
     messages = (query
                .order_by(models.Message.created_at.desc())
                .offset(skip)
                .limit(limit + 1)  # Get one extra to check if there are more
                .all())
     
+    # Check if there are more messages
     has_more = len(messages) > limit
     messages = messages[:limit]  # Trim to requested limit
     
-    total = db.query(models.Message).filter(models.Message.channel_id == channel_id).count()
+    # Get total count (respecting parent_only filter)
+    total_query = db.query(models.Message).filter(models.Message.channel_id == channel_id)
+    if parent_only:
+        total_query = total_query.filter(models.Message.parent_id.is_(None))
+    total = total_query.count()
+    
+    # Add has_replies information for each message
+    message_ids = [m.id for m in messages]
+    replies_exist = (
+        db.query(models.Message.parent_id)
+        .filter(models.Message.parent_id.in_(message_ids))
+        .distinct()
+        .all()
+    )
+    messages_with_replies = {r[0] for r in replies_exist}
+    
+    # Set has_replies flag for each message
+    for message in messages:
+        message.has_replies = message.id in messages_with_replies
     
     return schemas.MessageList(
         messages=messages,
@@ -517,6 +544,61 @@ def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.Mes
     db.commit()
     db.refresh(db_message)
     return db_message
+
+def user_in_channel(db: Session, user_id: int, channel_id: int) -> bool:
+    """Check if a user is a member of a channel."""
+    return db.query(models.UserChannel).filter(
+        models.UserChannel.user_id == user_id,
+        models.UserChannel.channel_id == channel_id
+    ).first() is not None
+
+def get_message_reply_chain(db: Session, message_id: int) -> List[models.Message]:
+    """
+    Get all messages in a reply chain, including:
+    1. The original message
+    2. All parent messages (if the given message is a reply)
+    3. All reply messages (if any message has replies)
+    Returns messages ordered by created_at date.
+    """
+    # First, get the original message
+    message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not message:
+        return []
+    
+    # Get all messages in the chain
+    chain_messages = []
+    
+    # If this message has a parent, traverse up to find the root
+    current = message
+    while current.parent_id is not None:
+        parent = db.query(models.Message).filter(models.Message.id == current.parent_id).first()
+        if not parent:
+            break
+        chain_messages.append(parent)
+        current = parent
+    
+    # Add the original message
+    chain_messages.append(message)
+    
+    # Find all replies in the chain
+    current = message
+    while True:
+        reply = db.query(models.Message).filter(models.Message.parent_id == current.id).first()
+        if not reply:
+            break
+        chain_messages.append(reply)
+        current = reply
+    
+    # Sort all messages by created_at
+    chain_messages.sort(key=lambda x: x.created_at)
+    
+    # Eager load user data for each message
+    message_ids = [m.id for m in chain_messages]
+    return (db.query(models.Message)
+            .filter(models.Message.id.in_(message_ids))
+            .options(joinedload(models.Message.user))
+            .order_by(models.Message.created_at)
+            .all())
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

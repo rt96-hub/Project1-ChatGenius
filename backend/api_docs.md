@@ -1343,4 +1343,118 @@ Returns messages from a channel with pagination. Messages that are replies will 
   1. Finding messages with parent_id to identify replies
   2. Using the parent object to get the original message content and author
   3. Following parent_id references to build the complete chain
-``` 
+
+### Get Channel Messages
+```http
+GET /channels/{channel_id}/messages?skip=0&limit=50&include_reactions=false&parent_only=true
+```
+
+Retrieves messages from a channel with pagination support.
+
+**Query Parameters:**
+- `skip` (optional): Number of messages to skip (default: 0)
+- `limit` (optional): Maximum number of messages to return (default: 50)
+- `include_reactions` (optional): Whether to include reaction data (default: false)
+- `parent_only` (optional): Whether to return only root messages (no replies) (default: true)
+
+**Response (200 OK):**
+```json
+{
+    "messages": [
+        {
+            "id": 1,
+            "content": "Hello world!",
+            "created_at": "2024-01-07T12:00:00Z",
+            "updated_at": "2024-01-07T12:00:00Z",
+            "user_id": 1,
+            "channel_id": 1,
+            "parent_id": null,
+            "has_replies": true,
+            "user": {
+                "id": 1,
+                "email": "user@example.com",
+                "name": "User Name",
+                "picture": "https://example.com/picture.jpg"
+            },
+            "reactions": [],
+            "parent": null
+        }
+    ],
+    "total": 100,
+    "has_more": true
+}
+```
+
+The `has_replies` field indicates whether a message has any replies, allowing the frontend to render appropriate UI elements. 
+
+### Get Message Reply Chain
+```http
+GET /messages/{message_id}/reply-chain
+```
+
+Returns all messages in a reply chain for a given message ID. This includes:
+1. All parent messages (if the given message is a reply)
+2. The message itself
+3. All replies in the chain
+
+Messages are ordered by created_at date (ascending).
+
+**Path Parameters:**
+- `message_id`: ID of the message to get the reply chain for
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "content": "Original message",
+        "created_at": "2024-01-07T11:00:00Z",
+        "updated_at": "2024-01-07T11:00:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "parent_id": null,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    },
+    {
+        "id": 2,
+        "content": "First reply",
+        "created_at": "2024-01-07T12:00:00Z",
+        "updated_at": "2024-01-07T12:00:00Z",
+        "user_id": 2,
+        "channel_id": 1,
+        "parent_id": 1,
+        "user": {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg"
+        }
+    },
+    {
+        "id": 3,
+        "content": "Second reply",
+        "created_at": "2024-01-07T13:00:00Z",
+        "updated_at": "2024-01-07T13:00:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "parent_id": 2,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    }
+]
+```
+
+**Error Responses:**
+- `404 Not Found`: Message not found
+- `403 Forbidden`: User is not a member of the channel containing the message
+
+// ... existing code ... 
