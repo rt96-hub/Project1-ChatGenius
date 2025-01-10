@@ -61,3 +61,7 @@ TODO List:
 28. don't let users delete dm channels at all, will keep allowing deletion for testing purposes
 
 29. NOT IMPORTANT, maybe dm channel isnt created until a message is sent, or it wont appear in the other users channel list until a message is sent
+30. file upload button to the left of the message input field
+
+31. set up port forwarding on ec2 instance, so https requests hit frontent port 3000
+32. ask if anyone has had luck getting auth0 on ec2 without using a domain name

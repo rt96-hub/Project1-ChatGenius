@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 interface ConfirmDialogProps {
@@ -6,7 +6,7 @@ interface ConfirmDialogProps {
     onClose: () => void;
     onConfirm: () => void;
     title: string;
-    message: string | JSX.Element;
+    message: string | React.ReactNode;
     confirmText?: string;
     cancelText?: string;
     type?: 'danger' | 'warning';

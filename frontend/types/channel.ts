@@ -8,19 +8,18 @@ export interface Channel {
     created_at: string;
     is_private: boolean;
     join_code: string | null;
-    is_dm?: boolean;
+    users: ChannelMember[];
+    messages: Message[];
     member_count: number;
-    users: Array<{
-        id: number;
-        email: string;
-        name: string;
-        picture?: string;
-        role?: ChannelRole;
-    }>;
-    messages: Array<{
-        id: number;
-        content: string;
-        created_at: string;
-        user_id: number;
-    }>;
+    role?: ChannelRole;
+}
+
+export type ChannelRole = 'owner' | 'moderator' | 'member';
+
+export interface ChannelMember {
+    id: number;
+    name: string;
+    email: string;
+    picture?: string;
+    role: ChannelRole;
 }

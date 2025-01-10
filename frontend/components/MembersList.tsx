@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 import type { ChannelMember, ChannelRole } from '../types/channel';
 import ConfirmDialog from './ConfirmDialog';
 import UserProfilePopout from './UserProfilePopout';
@@ -50,10 +51,12 @@ export default function MembersList({
                                     onClick={() => setShowProfile(member)}
                                 >
                                     {member.picture ? (
-                                        <img 
+                                        <Image 
                                             src={member.picture} 
                                             alt={member.name}
-                                            className="h-8 w-8 rounded-full"
+                                            width={32}
+                                            height={32}
+                                            className="rounded-full"
                                         />
                                     ) : (
                                         <UserCircleIcon className="h-8 w-8 text-gray-400" />

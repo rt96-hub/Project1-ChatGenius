@@ -2,7 +2,6 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createAuthenticatedApi } from '@/utils/api';
 
 interface ProtectedRouteProps {
@@ -12,7 +11,6 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, login, getAccessTokenSilently } = useAuth();
   const [isVerifying, setIsVerifying] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const verifyAuth = async () => {

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { PencilIcon, TrashIcon, FaceSmileIcon, ArrowUturnLeftIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
 import UserProfilePopout from './UserProfilePopout';
 import EmojiSelector from './EmojiSelector';
@@ -117,7 +118,6 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
 
   const getEmojiSelectorPosition = () => {
     if (!messageRef.current) return { top: 0, left: 0 };
-    const rect = messageRef.current.getBoundingClientRect();
     const buttonRect = messageRef.current.querySelector('button[title="Add reaction"]')?.getBoundingClientRect();
     
     if (!buttonRect) return { top: 0, left: 0 };
@@ -226,30 +226,31 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
 
   return (
     <>
-      <div className="space-y-2">
-        <div 
-          ref={messageRef}
-          className="flex items-start gap-3 group relative px-2 py-1 -mx-2 rounded-md hover:bg-gray-100 transition-colors"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+      <div 
+        ref={messageRef}
+        className="flex items-start gap-3 group relative px-2 py-1 -mx-2 rounded-md hover:bg-gray-100 transition-colors"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* User Avatar */}
+        <button 
+          onClick={() => setShowProfile(true)}
+          className="flex-none focus:outline-none"
         >
-          {/* User Avatar */}
-          <button 
-            onClick={() => setShowProfile(true)}
-            className="flex-none focus:outline-none"
-          >
-            {user.picture ? (
-              <img 
-                src={user.picture} 
-                alt={user.name} 
-                className="w-8 h-8 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white font-medium text-sm">
-                {initial}
-              </div>
-            )}
-          </button>
+          {user.picture ? (
+            <Image 
+              src={user.picture} 
+              alt={user.name} 
+              width={32}
+              height={32}
+              className="rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-white font-medium text-sm">
+              {initial}
+            </div>
+          )}
+        </button>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">

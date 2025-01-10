@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { PaperAirplaneIcon, UsersIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 import ChannelHeader from './ChannelHeader';
 import ChatMessage from './ChatMessage';
 import MemberListModal from './MemberListModal';
@@ -67,13 +67,51 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentChannelRef = useRef<number | null>(null);
-  const { connectionStatus, sendMessage, addMessageListener } = useConnection();
+  const { sendMessage, addMessageListener } = useConnection();
   const [isUserSentMessage, setIsUserSentMessage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+
+  const fetchChannelDetails = useCallback(async () => {
+    if (!channelId) return;
+    try {
+      const response = await api.get(`/channels/${channelId}`);
+      setChannel(response.data);
+    } catch (error) {
+      console.error('Failed to fetch channel details:', error);
+    }
+  }, [channelId, api]);
+
+  const fetchMessages = useCallback(async (skipCount: number, isInitial: boolean) => {
+    if (!channelId) return;
+    try {
+      setIsLoadingMore(true);
+      const response = await api.get(`/channels/${channelId}/messages`, {
+        params: { skip: skipCount, limit: 50 },
+        signal: abortControllerRef.current?.signal
+      });
+      const newMessages = response.data.messages;
+      setMessages(prev => {
+        const combined = isInitial ? newMessages : [...newMessages, ...prev];
+        return combined.sort((a: Message, b: Message) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
+      setHasMore(newMessages.length === 50);
+      setSkip(skipCount + newMessages.length);
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'name' in error && error.name !== 'AbortError') {
+        console.error('Failed to fetch messages:', error);
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [channelId, api]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!hasMore || isLoadingMore) return;
+    await fetchMessages(skip, false);
+  }, [hasMore, isLoadingMore, fetchMessages, skip]);
 
   useEffect(() => {
     // Cleanup function to abort any pending requests when unmounting
@@ -108,10 +146,11 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       fetchChannelDetails();
 
       // Set up WebSocket message listener
-      const removeListener = addMessageListener((data) => {
-        console.log('ChatArea received WebSocket message:', data);
-        // Only process messages for the current channel
-        if (data.channel_id === currentChannelRef.current) {
+      const removeListener = addMessageListener(
+        (data) => {
+          if (currentChannelRef.current !== data.channel_id) {
+            return;
+          }
           switch (data.type) {
             case 'new_message':
               console.log('Processing new message:', data.message);
@@ -211,7 +250,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               break;
           }
         }
-      });
+      );
 
       return () => {
         removeListener();
@@ -225,7 +264,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       setSkip(0);
       setHasMore(true);
     }
-  }, [channelId]);
+  }, [channelId, addMessageListener, currentUserId, fetchChannelDetails, fetchMessages, onChannelUpdate]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -255,77 +294,28 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
 
     // For new messages from others, only scroll if they're very recent
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage.created_at > (new Date(Date.now() - 1000).toISOString())) {
-      container.scrollTop = container.scrollHeight;
+    if (lastMessage && Date.now() - new Date(lastMessage.created_at).getTime() < 1000) {
+      requestAnimationFrame(() => {
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
     }
-  }, [messages, isInitialLoad, channel, isUserSentMessage]);
+  }, [messages, channel, isInitialLoad, isUserSentMessage]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      if (container.scrollTop < 100 && !isLoadingMore && hasMore) {
+      if (container.scrollTop === 0 && hasMore && !isLoadingMore) {
         loadMoreMessages();
       }
     };
 
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [isLoadingMore, hasMore, messagesContainerRef.current]);
-
-  const loadMoreMessages = async () => {
-    if (!channelId || isLoadingMore || !hasMore || channelId !== currentChannelRef.current) return;
-    setIsLoadingMore(true);
-    const container = messagesContainerRef.current;
-    const previousScrollHeight = container ? container.scrollHeight : 0;
-    const previousScrollTop = container ? container.scrollTop : 0;
-    const response = await fetchMessages(skip + 50, false);
-    if (channelId === currentChannelRef.current) {
-      setSkip(prev => prev + 50);
-      setIsLoadingMore(false);
-      if (container && response) {
-        const newScrollHeight = container.scrollHeight;
-        container.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
-      }
-    }
-  };
-
-  const fetchMessages = async (skipCount: number, isInitial: boolean) => {
-    if (!channelId || channelId !== currentChannelRef.current) return null;
-    try {
-      const response = await api.get(`/channels/${channelId}/messages`, {
-        params: { 
-          skip: skipCount, 
-          limit: 50,
-          include_reactions: true
-        },
-        signal: abortControllerRef.current?.signal
-      });
-      
-      // Double check channel hasn't changed during request
-      if (channelId !== currentChannelRef.current) return null;
-      
-      if (isInitial) {
-        setMessages(response.data.messages.sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()));
-      } else {
-        setMessages(prev => {
-          const existingIds = new Set(prev.map((m: Message) => m.id));
-          const newMessages = response.data.messages.filter((m: Message) => !existingIds.has(m.id));
-          return [...newMessages, ...prev].sort((a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-        });
-      }
-      setHasMore(response.data.has_more);
-      return response.data.messages;
-    } catch (error: unknown) {
-      if ((error as { name?: string }).name === 'AbortError') {
-        // Request was aborted, ignore
-        return null;
-      }
-      console.error('Failed to fetch messages:', error);
-      return null;
-    }
-  };
+  }, [hasMore, isLoadingMore, loadMoreMessages]);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -337,17 +327,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       }
     };
     fetchCurrentUser();
-  }, []);
-
-  const fetchChannelDetails = async () => {
-    if (!channelId) return;
-    try {
-      const response = await api.get(`/channels/${channelId}`);
-      setChannel(response.data);
-    } catch (error) {
-      console.error('Failed to fetch channel details:', error);
-    }
-  };
+  }, [api]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,6 +411,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     } catch (error) {
       console.error('Failed to send message:', error);
       setNewMessage(messageContent);
+      // You might want to add a toast notification here
     }
   };
 
@@ -458,18 +439,16 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   };
 
   const handleUpdateMemberRole = async (userId: number, role: ChannelRole) => {
-    if (!channel) return;
     try {
-      await api.put(`/channels/${channel.id}/roles/${userId}`, { role });
+      await api.patch(`/channels/${channelId}/members/${userId}`, { role });
     } catch (error) {
       console.error('Failed to update member role:', error);
     }
   };
 
   const handleRemoveMember = async (userId: number) => {
-    if (!channel) return;
     try {
-      await api.delete(`/channels/${channel.id}/members/${userId}`);
+      await api.delete(`/channels/${channelId}/members/${userId}`);
     } catch (error) {
       console.error('Failed to remove member:', error);
     }

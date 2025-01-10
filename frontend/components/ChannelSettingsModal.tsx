@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
-import type { Channel, ChannelMember, ChannelRole } from '../types/channel';
+import type { Channel, ChannelRole } from '../types/channel';
 import MembersList from './MembersList';
 import ChannelInvite from './ChannelInvite';
 import ConfirmDialog from './ConfirmDialog';
@@ -82,7 +82,7 @@ export default function ChannelSettingsModal({
                 name,
                 description: description || null
             });
-            onUpdateChannel();
+            onUpdateChannel({ name, description: description || undefined });
         } catch (error) {
             console.error('Failed to update channel:', error);
         } finally {
@@ -188,8 +188,8 @@ export default function ChannelSettingsModal({
                                     className={classNames(
                                         channel.is_private ? 'bg-indigo-600' : 'bg-gray-200',
                                         'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2',
-                                        !isOwner && 'cursor-not-allowed opacity-50',
-                                        isTogglingPrivacy && 'opacity-50 cursor-wait'
+                                        !isOwner ? 'cursor-not-allowed opacity-50' : '',
+                                        isTogglingPrivacy ? 'opacity-50 cursor-wait' : ''
                                     )}
                                     disabled={!isOwner || isTogglingPrivacy}
                                 >
