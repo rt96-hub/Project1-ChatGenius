@@ -1,6 +1,26 @@
 'use client';
+import { useEffect, useState } from 'react';
+
+interface WindowInfo {
+  href: string;
+  host: string;
+  hostname: string;
+  protocol: string;
+}
 
 export default function Debug() {
+  const [windowInfo, setWindowInfo] = useState<WindowInfo | null>(null);
+
+  useEffect(() => {
+    // Access window object only after component mounts (client-side)
+    setWindowInfo({
+      href: window.location.href,
+      host: window.location.host,
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+    });
+  }, []);
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Debug Info</h1>
@@ -18,12 +38,7 @@ export default function Debug() {
 
       <h2 className="text-xl font-semibold mt-4 mb-2">Window Location:</h2>
       <pre className="bg-gray-100 p-4 rounded-lg overflow-auto">
-        {JSON.stringify({
-          href: window.location.href,
-          host: window.location.host,
-          hostname: window.location.hostname,
-          protocol: window.location.protocol,
-        }, null, 2)}
+        {windowInfo ? JSON.stringify(windowInfo, null, 2) : 'Loading...'}
       </pre>
     </div>
   );
