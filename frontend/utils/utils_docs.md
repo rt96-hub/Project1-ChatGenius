@@ -10,11 +10,15 @@ This directory contains utility functions and configurations used throughout the
 **File**: `api.ts`
 
 ### Overview
-The API utility provides a configured Axios instance for making HTTP requests to the backend server. It includes support for both unauthenticated and authenticated requests.
+The API utility provides a configured Axios instance for making HTTP requests to the backend server. It includes support for both unauthenticated and authenticated requests, with environment-aware configuration.
 
 ### Dependencies
 - `axios`: HTTP client for making requests
 - `@auth0/auth0-react`: (indirect dependency) Used in conjunction with authentication
+
+### Configuration
+The API utility uses environment variables for configuration:
+- `NEXT_PUBLIC_API_URL`: The base URL for API requests (defaults to 'http://localhost:8000')
 
 ### Exports
 
@@ -22,68 +26,37 @@ The API utility provides a configured Axios instance for making HTTP requests to
 A pre-configured Axios instance with the following setup:
 ```typescript
 const api = axios.create({
-  baseURL: 'http://localhost:8000'
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 });
 ```
 
 #### Named Export: `createAuthenticatedApi(token: string)`
 A function that creates an authenticated version of the API instance by adding the JWT token to request headers.
 
-### Usage Patterns
+### Usage in Application
 
-The API utility is used in several key areas of the application:
+The API utility is used in several key components and hooks:
 
-1. **Direct API Usage**
-   ```typescript
-   import api from '@/utils/api';
-   // Make unauthenticated requests
-   await api.get('/endpoint');
-   ```
+1. **useAuth Hook** (`hooks/useAuth.ts`)
+   - Uses `createAuthenticatedApi` for authenticated requests
+   - Handles user authentication and synchronization
 
-2. **Authenticated Requests**
-   ```typescript
-   import { createAuthenticatedApi } from '@/utils/api';
-   const api = createAuthenticatedApi(token);
-   await api.post('/auth/sync', data);
-   ```
+2. **useApi Hook** (`hooks/useApi.ts`)
+   - Uses the base `api` instance
+   - Manages API requests and state
 
-3. **With useApi Hook**
-   The `useApi` hook in `hooks/useApi.ts` uses this utility to automatically inject authentication tokens into requests.
-
-### Integration Points
-
-1. **Authentication Flow**
-   - Used in `useAuth` hook for user synchronization
-   - Handles backend verification in `ProtectedRoute` component
-   - Manages user authentication state
-
-2. **Request Format Examples**
-
-   a. User Synchronization (`/auth/sync`):
-   ```typescript
-   POST /auth/sync
-   {
-     email: string;
-     auth0_id: string;
-     name: string;
-   }
-   ```
-
-   b. Token Verification (`/auth/verify`):
-   ```typescript
-   GET /auth/verify
-   Headers: {
-     Authorization: 'Bearer ${token}'
-   }
-   ```
-
-### Error Handling
-- The base configuration handles network errors
-- Authentication errors are typically handled by the consuming components
-- Token expiration is managed through Auth0 integration
+3. **ProtectedRoute Component** (`components/ProtectedRoute.tsx`)
+   - Uses `createAuthenticatedApi` for route protection
+   - Verifies authentication status
 
 ### Best Practices
-1. Always use the `useApi` hook for authenticated requests in components
-2. Use `createAuthenticatedApi` for authenticated requests outside of React components
-3. Use the default `api` export for unauthenticated requests only
-4. Include error handling when making direct API calls 
+1. Always use environment variables for configuration when possible
+2. Use `useApi` hook for authenticated requests in components
+3. Use `createAuthenticatedApi` for authenticated requests outside of React components
+4. Use the default `api` export for unauthenticated requests only
+5. Include error handling when making direct API calls
+
+### Security Considerations
+- Authentication tokens are managed securely through Auth0 integration
+- Environment variables are used to configure API endpoints
+- Token injection is handled through headers rather than URL parameters 

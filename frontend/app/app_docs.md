@@ -3,6 +3,8 @@
 ## Directory Structure
 ```
 frontend/app/
+├── debug/             # Debug utilities and information display
+│   └── page.tsx      # Debug page component
 ├── globals.css        # Global styles using Tailwind CSS
 ├── layout.tsx         # Root layout component with providers
 └── page.tsx          # Main chat interface page
@@ -20,108 +22,99 @@ The root layout component that wraps all pages in the application.
 
 **Dependencies:**
 - `next/font/google`: For loading the Inter font
-- `@/contexts/Auth0Provider`: Authentication context provider for user authentication state
-- `@/contexts/ConnectionContext`: WebSocket connection context for real-time communication
+- `@/contexts/Auth0Provider`: Authentication context provider
+- `@/contexts/ConnectionContext`: WebSocket connection context
 
 **Functionality:**
 - Sets up the base HTML structure with language set to English
 - Configures metadata including title "ChatGenius" and description
-- Provides authentication context through Auth0 for user management
+- Provides authentication context through Auth0
 - Provides WebSocket connection context for real-time messaging
 - Applies global font styles using Inter font
-- Wraps all child components in necessary context providers
 
 ### `page.tsx`
-The main page component that implements the chat interface.
+The main page component implementing the chat interface.
 
 **Key Components:**
 - `Home`: The main page component implementing the chat interface
-  - Protected by `ProtectedRoute` component to ensure authentication
+  - Protected by `ProtectedRoute` component
 
 **Dependencies:**
-- `Header`: Application header showing user info and navigation
-- `Sidebar`: Channel list and navigation component (64 units wide)
-- `ChatArea`: Main chat interface for messages
-- `ProtectedRoute`: HOC for authentication protection
+- `@/components/Header`: Application header component
+- `@/components/Sidebar`: Channel list component
+- `@/components/ChatArea`: Main chat interface component
+- `@/components/ProtectedRoute`: Authentication protection HOC
+- React hooks: useState, useCallback
 
 **State Management:**
-- `selectedChannelId`: (number | null) - Tracks the currently selected channel
-- `refreshChannelList`: (number) - Counter to trigger channel list refresh
+- `selectedChannelId`: Tracks currently selected channel
+- `refreshChannelList`: Counter for channel list refresh
 
 **Key Functions:**
-- `handleChannelSelect(channelId: number)`: 
-  - Sets the selected channel ID
-  - Triggers chat area to load channel messages
-- `handleChannelUpdate()`: 
-  - Callback to refresh channel list
-  - Triggered after channel modifications
-- `handleChannelDelete()`: 
-  - Clears selected channel
-  - Triggers channel list refresh
-  - Called after channel deletion
+- `handleChannelSelect(channelId: number)`: Sets selected channel
+- `handleChannelUpdate()`: Refreshes channel list
+- `handleChannelDelete()`: Handles channel deletion
+- `handleNavigateToDM(channelId: number)`: Handles direct message navigation
 
-**Layout Structure:**
-- Implements a responsive layout with:
-  - Fixed header at top
-  - Sidebar (fixed 64 units wide)
-  - Main chat area (flexible width)
-  - Full-height design with overflow handling
-  - Nested flex containers for optimal space usage
+### `debug/page.tsx`
+Debug utility page for development and troubleshooting.
+
+**Key Components:**
+- `Debug`: Component displaying debug information
+
+**Dependencies:**
+- React hooks: useEffect, useState
+
+**Functionality:**
+- Displays environment variables (Auth0, API URLs)
+- Shows window location information
+- Provides development debugging tools
 
 ### `globals.css`
 Global CSS styles using Tailwind CSS framework.
 
 **Features:**
-- Tailwind CSS integration with base, components, and utilities
-- Root CSS variables defining theme colors:
-  - Foreground colors (default: black)
-  - Background colors (gradient from rgb(214, 219, 220) to white)
-- Base styling for body element with:
-  - Text color using foreground RGB values
-  - Background color using end RGB values
+- Tailwind CSS integration
+- Theme color variables:
+  - Foreground colors
+  - Background colors
+- Base styling for body element
 
-## Component Relationships and Data Flow
+## Component Dependencies and Usage
 
-The application follows a hierarchical structure with data flow:
+### Components Using App Files:
+- `layout.tsx` is used by:
+  - All pages in the application
+  - Next.js routing system
 
-1. `layout.tsx` (Root)
-   - Provides Auth0 authentication context
-   - Provides WebSocket connection context
-   - ↓
-2. `page.tsx` (Main Interface)
-   - Manages channel selection state
-   - Coordinates between Sidebar and ChatArea
-   - ↓
-3. Child Components
-   - `Header`: Shows user info, uses Auth0 context
-   - `Sidebar`: Lists channels, triggers selection
-   - `ChatArea`: Shows messages, uses connection context
+- `page.tsx` depends on:
+  - `@/components/Header`
+  - `@/components/Sidebar`
+  - `@/components/ChatArea`
+  - `@/components/ProtectedRoute`
+  - `@/contexts/Auth0Provider` (via layout)
+  - `@/contexts/ConnectionContext` (via layout)
 
-## Authentication Flow
+### Data Flow and State Management:
+1. Authentication State (Auth0Provider)
+   - Managed in layout.tsx
+   - Used by Header, ProtectedRoute
+   - Controls access to protected routes
 
-1. All pages wrapped in `ProtectedRoute`
-2. Auth0Provider manages:
-   - User authentication state
-   - Login/logout operations
-   - Token management
-   - User profile data
-   - Hosted login/signup pages
-   - Profile management interface
+2. WebSocket Connection (ConnectionProvider)
+   - Managed in layout.tsx
+   - Used by ChatArea
+   - Handles real-time updates
 
-**Note:** Authentication is fully handled by Auth0's hosted pages and services. We do not maintain custom login, signup, or profile pages as these are provided securely through Auth0's infrastructure.
+3. Channel Management (page.tsx)
+   - State shared between Sidebar and ChatArea
+   - Coordinates channel selection and updates
+   - Manages direct message navigation
 
-## Real-time Communication
-
-1. ConnectionProvider establishes WebSocket connection
-2. Used by ChatArea for:
-   - Real-time message updates
-   - Channel status changes
-   - User presence information
-
-## Usage Notes
-- All components use TypeScript for type safety
-- Components marked with 'use client' for client-side rendering
-- Tailwind CSS used exclusively for styling
-- Modular architecture for maintainability
-- Protected routes ensure authenticated access
-- Real-time updates through WebSocket connection 
+## Best Practices Implemented
+- Client-side components marked with 'use client'
+- Responsive layout with Tailwind CSS
+- Protected route implementation for security
+- Centralized state management
+- Modular component architecture
+- Debug tools for development 

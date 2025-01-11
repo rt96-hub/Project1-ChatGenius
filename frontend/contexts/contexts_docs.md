@@ -49,18 +49,12 @@ interface Auth0ProviderProps {
   - profile
   - email
 
-#### Usage Example
-```typescript
-import { Auth0Provider } from '../contexts/Auth0Provider';
-
-function App({ children }) {
-  return (
-    <Auth0Provider>
-      {children}
-    </Auth0Provider>
-  );
-}
-```
+### Used By
+- `app/layout.tsx`: Root layout component wraps the entire application
+- `hooks/useAuth.ts`: Custom hook for authentication management
+- `hooks/useApi.ts`: API utility hook for authenticated requests
+- `components/AuthButton.tsx`: Authentication UI component
+- `components/Header.tsx`: Main navigation header
 
 ## ConnectionContext
 
@@ -74,6 +68,9 @@ Manages WebSocket connections for real-time communication in the application, pr
 #### Dependencies
 - `react`: For context and hooks functionality
 - `@auth0/auth0-react`: For authentication integration
+
+#### Environment Configuration
+- Uses `NEXT_PUBLIC_WS_URL` environment variable (defaults to 'ws://localhost:8000')
 
 #### Type Definitions
 
@@ -113,7 +110,7 @@ interface ConnectionContextType {
 1. **Connection Setup**
    - Automatically establishes connection when authenticated
    - Uses Auth0 token for authentication
-   - WebSocket URL format: `ws://localhost:8000/ws?token=${token}`
+   - WebSocket URL format: `${WS_URL}/ws?token=${token}`
 
 2. **Reconnection Logic**
    - Implements exponential backoff strategy
@@ -135,32 +132,7 @@ interface ConnectionContextType {
    - Marks as idle after 30 seconds of inactivity
    - Automatically returns to 'connected' on activity
 
-#### Message Handling
-
-1. **Sending Messages**
-   ```typescript
-   const sendMessage = async (message: any) => {
-     // Sends JSON-stringified message if connected
-     // Attempts reconnection if disconnected
-   }
-   ```
-
-2. **Receiving Messages**
-   ```typescript
-   ws.onmessage = (event) => {
-     const data = JSON.parse(event.data);
-     messageListeners.current.forEach(listener => listener(data));
-   }
-   ```
-
-3. **Message Listener Management**
-   ```typescript
-   const addMessageListener = (callback: (message: WebSocketMessage) => void) => {
-     // Adds listener and returns cleanup function
-   }
-   ```
-
-### WebSocket Communication Formats
+### Message Handling
 
 #### Outgoing Messages
 Messages sent through the WebSocket should follow this format:
@@ -185,39 +157,16 @@ Messages received from the WebSocket are parsed JSON objects with the same struc
    - Prevents connection attempts when unauthenticated
    - Closes existing connections on authentication loss
 
-### Usage Example
-```typescript
-import { useConnection } from '../contexts/ConnectionContext';
-
-function ChatComponent() {
-  const { connectionStatus, sendMessage, addMessageListener } = useConnection();
-
-  useEffect(() => {
-    const cleanup = addMessageListener((message) => {
-      // Handle incoming message
-    });
-    return cleanup;
-  }, []);
-
-  const sendChatMessage = () => {
-    sendMessage({
-      type: 'chat_message',
-      channel_id: 123,
-      content: 'Hello!'
-    });
-  };
-
-  return (
-    <div>
-      <p>Status: {connectionStatus}</p>
-      <button onClick={sendChatMessage}>Send Message</button>
-    </div>
-  );
-}
-```
+### Used By
+- `app/layout.tsx`: Root layout component for WebSocket initialization
+- `components/Header.tsx`: For displaying connection status
+- `components/ChatArea.tsx`: For real-time message handling
+- `components/ProfileStatus.tsx`: For showing user connection state
 
 ### Best Practices
 1. Always clean up message listeners using the returned cleanup function
 2. Check connection status before critical operations
 3. Handle potential connection errors in your components
-4. Use TypeScript interfaces for type safety in messages 
+4. Use TypeScript interfaces for type safety in messages
+5. Implement proper error handling for WebSocket operations
+6. Monitor connection status changes for UI updates 

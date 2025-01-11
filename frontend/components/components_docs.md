@@ -2,6 +2,33 @@
 
 This document provides a comprehensive overview of the components used in the frontend of our Slack-like communication platform. Each component is detailed with its purpose, functionality, and data flow.
 
+## Component Dependencies Overview
+
+### Main App Dependencies
+The following components are directly used by the main app (`app/page.tsx`):
+- `Header`
+- `Sidebar`
+- `ChatArea`
+- `ProtectedRoute`
+
+### Component Hierarchy
+```
+app/page.tsx
+├── Header
+│   └── ProfileStatus
+├── Sidebar
+│   ├── CreateChannelModal
+│   ├── ViewDMsModal
+│   ├── NewDMModal
+│   └── ConfirmDialog
+└── ChatArea
+    ├── ChannelHeader
+    ├── ChatMessage
+    │   └── EmojiSelector
+    ├── UserProfilePopout
+    └── MembersList
+```
+
 ## Core Components
 
 ### ChatArea.tsx
@@ -584,3 +611,140 @@ Components implement consistent error handling patterns:
 - User feedback for actions
 - Fallback UI states
 - Network error recovery 
+
+### Dependencies and Contexts
+
+All components generally depend on the following shared resources:
+
+**Contexts:**
+- `ConnectionContext`: WebSocket connection management
+- `Auth0Provider`: Authentication state and methods
+- `ApiContext`: API client and utilities
+
+**Hooks:**
+- `useAuth`: Authentication state and methods
+- `useApi`: API client and utilities
+- `useConnection`: WebSocket connection management
+
+**UI Libraries:**
+- `@heroicons/react`: Icon components
+- `@headlessui/react`: UI components (modals, dropdowns)
+- TailwindCSS: Styling
+
+**Types:**
+All components use shared type definitions from `@/types/*`:
+- `Channel`
+- `Message`
+- `User`
+- `Reaction`
+
+## Component Usage Map
+
+### Header.tsx
+**Used by:** `app/page.tsx`
+**Dependencies:**
+- `ProfileStatus`
+- `@heroicons/react/24/outline`: `{ Bars3Icon, MagnifyingGlassIcon }`
+- `useAuth`
+- `useConnection`
+
+### Sidebar.tsx
+**Used by:** `app/page.tsx`
+**Dependencies:**
+- `CreateChannelModal`
+- `ViewDMsModal`
+- `NewDMModal`
+- `ConfirmDialog`
+- `@heroicons/react/24/outline`: Various icons
+- `useApi`
+- `useAuth`
+- `useConnection`
+
+### ChatArea.tsx
+**Used by:** `app/page.tsx`
+**Dependencies:**
+- `ChannelHeader`
+- `ChatMessage`
+- `MembersList`
+- `ChannelSettingsModal`
+- `useConnection`
+- `useApi`
+
+### ChatMessage.tsx
+**Used by:** `ChatArea`
+**Dependencies:**
+- `EmojiSelector`
+- `UserProfilePopout`
+- `useApi`
+
+### UserProfilePopout.tsx
+**Used by:** `ChatMessage`
+**Dependencies:**
+- `useAuth`
+- `useApi`
+
+### EmojiSelector.tsx
+**Used by:** `ChatMessage`
+**Dependencies:**
+- `useApi`
+- `useClickOutside` (custom hook)
+
+### ChannelHeader.tsx
+**Used by:** `ChatArea`
+**Dependencies:**
+- `ChannelSettingsModal`
+- `MembersList`
+
+### MembersList.tsx
+**Used by:** 
+- `ChatArea`
+- `ChannelSettingsModal`
+**Dependencies:**
+- `useApi`
+
+### ConfirmDialog.tsx
+**Used by:**
+- `Sidebar`
+- `ChannelSettingsModal`
+- `ChatMessage`
+**Dependencies:**
+- `@headlessui/react`
+
+### CreateChannelModal.tsx
+**Used by:** `Sidebar`
+**Dependencies:**
+- `useApi`
+- `@headlessui/react`
+
+### ViewDMsModal.tsx
+**Used by:** `Sidebar`
+**Dependencies:**
+- `useApi`
+- `@headlessui/react`
+
+### NewDMModal.tsx
+**Used by:** `Sidebar`
+**Dependencies:**
+- `useApi`
+- `@headlessui/react`
+
+### ChannelSettingsModal.tsx
+**Used by:**
+- `ChatArea`
+- `ChannelHeader`
+**Dependencies:**
+- `MembersList`
+- `ConfirmDialog`
+- `useApi`
+- `@headlessui/react`
+
+### ProtectedRoute.tsx
+**Used by:** `app/page.tsx`
+**Dependencies:**
+- `useAuth`
+
+### ProfileStatus.tsx
+**Used by:** `Header`
+**Dependencies:**
+- `useAuth`
+- `useConnection` 

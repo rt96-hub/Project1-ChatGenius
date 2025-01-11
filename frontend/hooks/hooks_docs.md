@@ -18,6 +18,12 @@ A custom hook that manages authentication state and user synchronization with th
 - `@/utils/api`: Local API utility for making authenticated requests
 - `react`: For hooks and effects
 
+### Used By
+- `components/AuthButton.tsx`: For login/logout functionality and user display
+- `components/Header.tsx`: For user authentication state and profile management
+- `components/ProtectedRoute.tsx`: For route protection and token verification
+- Other components requiring authentication state
+
 ### Implementation Details
 
 The hook wraps Auth0's `useAuth0` hook and adds the following functionality:
@@ -98,6 +104,12 @@ A custom hook that provides an authenticated Axios instance for making API reque
 - `@/utils/api`: Pre-configured Axios instance
 - `react`: For hooks and effects
 
+### Used By
+- `components/CreateChannelModal.tsx`: For channel creation API calls
+- `components/UserProfilePopout.tsx`: For user profile management
+- `components/EmojiSelector.tsx`: For emoji-related API interactions
+- Other components requiring authenticated API access
+
 ### Implementation Details
 
 1. **Request Interceptor Setup**
@@ -140,4 +152,5 @@ try {
 1. Always use this hook for making authenticated API requests
 2. Handle errors appropriately in components using try-catch blocks
 3. Consider implementing request retries for token acquisition failures
-4. Use the hook within authenticated routes/components only 
+4. Use the hook within authenticated routes/components only
+5. Prefer this hook over direct `createAuthenticatedApi` usage in React components 
