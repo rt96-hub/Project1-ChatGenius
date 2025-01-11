@@ -56,7 +56,7 @@ const getStatusTitle = (status: ConnectionStatus): string => {
 
 export default function ProfileStatus({ user, connectionStatus, onProfileUpdate, onNavigateToDM }: ProfileStatusProps) {
   const [showProfile, setShowProfile] = useState(false);
-  const initial = user.name ? user.name[0].toUpperCase() : user.email[0].toUpperCase();
+  const initial = user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?';
 
   return (
     <>

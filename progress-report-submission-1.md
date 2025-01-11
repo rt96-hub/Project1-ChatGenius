@@ -29,8 +29,8 @@
 - ✓ Real-time presence tracking
 - ✓ Away status detection
 - ✓ Online/offline status
+- ✓ Custom profile bio
 - ❌ Typing indicators
-- ❌ Custom profile bio
 
 ### 5. Channel/DM Organization (PARTLY IMPLEMENTED)
 - ✓ Public channels implementation
