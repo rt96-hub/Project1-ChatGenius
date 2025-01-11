@@ -1189,11 +1189,13 @@ Returns all channels the current user is a member of, ordered by most recent mes
 POST /channels/{channel_id}/messages/{parent_id}/reply
 ```
 
-Creates a reply to a message. If the parent message already has a reply, the new message will be attached to the last message in the reply chain.
+Creates a reply to a message. If the parent message already has a reply, the new message will be automatically attached to the last message in the reply chain.
 
-**Path Parameters:**
-- `channel_id`: ID of the channel containing the parent message
-- `parent_id`: ID of the message to reply to
+**Implementation Details:**
+- Function: `create_message_reply_endpoint` in main.py
+- CRUD: `create_reply` in crud.py
+- Models: Message model with parent/child relationships
+- Schemas: MessageReplyCreate, Message
 
 **Request Body:**
 ```json
@@ -1212,6 +1214,7 @@ Creates a reply to a message. If the parent message already has a reply, the new
     "user_id": 1,
     "channel_id": 1,
     "parent_id": 1,
+    "has_replies": false,
     "user": {
         "id": 1,
         "email": "user@example.com",
@@ -1237,19 +1240,73 @@ Creates a reply to a message. If the parent message already has a reply, the new
 }
 ```
 
-**WebSocket Event:**
-When a reply is created, a `message_created` event is broadcast to all users in the channel:
+**WebSocket Events:**
+Two events are broadcast when a reply is created:
+1. `message_created` for the new reply
+2. `message_update` for the root message to update its has_replies status
+
+#### 2. Get Message Reply Chain
+```http
+GET /messages/{message_id}/reply-chain
+```
+
+Returns all messages in a reply chain for a given message ID, including:
+1. All parent messages (if the given message is a reply)
+2. The message itself
+3. All replies in the chain
+
+Messages are ordered by created_at date (ascending).
+
+**Implementation Details:**
+- Function: `get_message_reply_chain_endpoint` in main.py
+- CRUD: `get_message_reply_chain` in crud.py
+- Models: Message model with parent/child relationships
+- Schemas: Message
+
+**Response (200 OK):**
 ```json
-{
-    "type": "message_created",
-    "message": {
-        "id": 2,
-        "content": "This is a reply message",
-        "created_at": "2024-01-07T12:00:00Z",
-        "updated_at": "2024-01-07T12:00:00Z",
+[
+    {
+        "id": 1,
+        "content": "Original message",
+        "created_at": "2024-01-07T11:00:00Z",
+        "updated_at": "2024-01-07T11:00:00Z",
         "user_id": 1,
         "channel_id": 1,
+        "parent_id": null,
+        "has_replies": true,
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "User Name",
+            "picture": "https://example.com/picture.jpg"
+        }
+    },
+    {
+        "id": 2,
+        "content": "First reply",
+        "created_at": "2024-01-07T12:00:00Z",
+        "updated_at": "2024-01-07T12:00:00Z",
+        "user_id": 2,
+        "channel_id": 1,
         "parent_id": 1,
+        "has_replies": true,
+        "user": {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg"
+        }
+    },
+    {
+        "id": 3,
+        "content": "Second reply",
+        "created_at": "2024-01-07T13:00:00Z",
+        "updated_at": "2024-01-07T13:00:00Z",
+        "user_id": 1,
+        "channel_id": 1,
+        "parent_id": 2,
+        "has_replies": false,
         "user": {
             "id": 1,
             "email": "user@example.com",
@@ -1257,92 +1314,12 @@ When a reply is created, a `message_created` event is broadcast to all users in 
             "picture": "https://example.com/picture.jpg"
         }
     }
-}
+]
 ```
 
 **Error Responses:**
-- `404 Not Found`: Parent message not found in the specified channel
-- `400 Bad Request`: Could not create reply
-
-#### 2. List Channel Messages
-```http
-GET /channels/{channel_id}/messages?skip=0&limit=50&include_reactions=true
-```
-
-Returns messages from a channel with pagination. Messages that are replies will include their parent message data.
-
-**Query Parameters:**
-- `skip` (optional): Number of records to skip (default: 0)
-- `limit` (optional): Maximum number of records to return (default: 50)
-- `include_reactions` (optional): Whether to include message reactions (default: false)
-
-**Response (200 OK):**
-```json
-{
-    "messages": [
-        {
-            "id": 2,
-            "content": "This is a reply",
-            "created_at": "2024-01-07T12:00:00Z",
-            "updated_at": "2024-01-07T12:00:00Z",
-            "user_id": 1,
-            "channel_id": 1,
-            "parent_id": 1,
-            "user": {
-                "id": 1,
-                "email": "user@example.com",
-                "name": "User Name",
-                "picture": "https://example.com/picture.jpg"
-            },
-            "reactions": [],
-            "parent": {
-                "id": 1,
-                "content": "Original message",
-                "created_at": "2024-01-07T11:00:00Z",
-                "updated_at": "2024-01-07T11:00:00Z",
-                "user_id": 2,
-                "channel_id": 1,
-                "parent_id": null,
-                "user": {
-                    "id": 2,
-                    "email": "user2@example.com",
-                    "name": "User Two",
-                    "picture": "https://example.com/picture2.jpg"
-                }
-            }
-        },
-        {
-            "id": 1,
-            "content": "Original message",
-            "created_at": "2024-01-07T11:00:00Z",
-            "updated_at": "2024-01-07T11:00:00Z",
-            "user_id": 2,
-            "channel_id": 1,
-            "parent_id": null,
-            "user": {
-                "id": 2,
-                "email": "user2@example.com",
-                "name": "User Two",
-                "picture": "https://example.com/picture2.jpg"
-            },
-            "reactions": [],
-            "parent": null
-        }
-    ],
-    "total": 2,
-    "has_more": false
-}
-```
-
-**Notes on Reply Chains:**
-- Messages with `parent_id === null` are original messages
-- Messages with `parent_id !== null` are replies
-- Each message can have at most one reply (enforced by unique constraint)
-- When replying to a message that already has replies, the new reply is automatically attached to the last message in the chain
-- The frontend can reconstruct reply chains by:
-  1. Finding messages with parent_id to identify replies
-  2. Using the parent object to get the original message content and author
-  3. Following parent_id references to build the complete chain
+- `404 Not Found`: Message not found
+- `403 Forbidden`: User is not a member of the channel containing the message
 
 ### Get Channel Messages
 ```http
@@ -1413,6 +1390,7 @@ Messages are ordered by created_at date (ascending).
         "user_id": 1,
         "channel_id": 1,
         "parent_id": null,
+        "has_replies": true,
         "user": {
             "id": 1,
             "email": "user@example.com",
@@ -1428,6 +1406,7 @@ Messages are ordered by created_at date (ascending).
         "user_id": 2,
         "channel_id": 1,
         "parent_id": 1,
+        "has_replies": true,
         "user": {
             "id": 2,
             "email": "user2@example.com",
@@ -1443,6 +1422,7 @@ Messages are ordered by created_at date (ascending).
         "user_id": 1,
         "channel_id": 1,
         "parent_id": 2,
+        "has_replies": false,
         "user": {
             "id": 1,
             "email": "user@example.com",
@@ -1457,4 +1437,79 @@ Messages are ordered by created_at date (ascending).
 - `404 Not Found`: Message not found
 - `403 Forbidden`: User is not a member of the channel containing the message
 
-// ... existing code ... 
+## WebSocket Implementation Details
+
+The WebSocket connection is managed by the `ConnectionManager` class in main.py, which handles:
+- Connection limits (MAX_CONNECTIONS_PER_USER and MAX_TOTAL_CONNECTIONS)
+- User-channel mapping
+- Message broadcasting
+- Connection cleanup
+
+### Connection Manager Methods
+- `connect`: Establishes new WebSocket connection
+- `disconnect`: Cleans up disconnected WebSocket
+- `broadcast_to_channel`: Sends message to all users in a channel
+- `broadcast_member_joined`: Notifies when new member joins
+- `broadcast_member_left`: Notifies when member leaves
+- `broadcast_role_updated`: Notifies of role changes
+- `broadcast_privacy_updated`: Notifies of privacy setting changes
+- `broadcast_channel_created`: Notifies of new channel creation
+
+### WebSocket Authentication
+WebSocket connections require a valid Auth0 token passed as a query parameter:
+```
+ws://your-server/ws?token=<auth0_token>
+```
+
+The token is verified using the same Auth0 verification process as REST endpoints. 
+
+## Database Models
+
+### User Model
+- Primary key: id (Integer)
+- Unique fields: auth0_id (String), email (String)
+- Relationships:
+  - messages: One-to-many with Message
+  - channels: Many-to-many with Channel through UserChannel
+
+### Channel Model
+- Primary key: id (Integer)
+- Fields: name, description, is_private, is_dm, join_code
+- Relationships:
+  - messages: One-to-many with Message
+  - users: Many-to-many with User through UserChannel
+  - owner: Many-to-one with User
+  - roles: One-to-many with ChannelRole
+
+### Message Model
+- Primary key: id (Integer)
+- Fields: content, created_at, updated_at
+- Relationships:
+  - user: Many-to-one with User
+  - channel: Many-to-one with Channel
+  - reactions: One-to-many with MessageReaction
+  - parent/reply: Self-referential one-to-one for reply chains
+
+### Reaction System Models
+- Reaction: Defines available reactions
+- MessageReaction: Links messages, reactions, and users
+
+## Implementation Notes
+
+### Message Reply System
+- Messages use a self-referential relationship with parent_id
+- Each message can have at most one reply (enforced by unique constraint)
+- Reply chains are built by following parent_id references
+- When replying to a message with existing replies, the new reply is attached to the last message in the chain
+
+### DM Channels
+- DM channels are always private (enforced by CHECK constraint)
+- Two-person DMs have auto-generated names
+- Group DMs can have custom names
+- Each user pair can have at most one DM channel
+
+### Channel Privacy
+- Channels can be public or private
+- Private channels require join codes
+- DM channels are always private
+- Channel privacy changes are broadcast via WebSocket 

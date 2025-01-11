@@ -1,12 +1,13 @@
 # Backend Documentation
 
 ## Overview
-This is a FastAPI-based backend for a Slack-like communication platform. The system supports real-time messaging, channel management, and user authentication through Auth0. The application uses PostgreSQL for data persistence and WebSocket connections for real-time communication.
+This is a FastAPI-based backend for a Slack-like communication platform. The system supports real-time messaging, channel management, user authentication through Auth0, and message reactions. The application uses PostgreSQL for data persistence and WebSocket connections for real-time communication.
 
 ## Directory Structure
 ```
 backend/
 ├── alembic/              # Database migration files
+├── scripts/              # Utility scripts for deployment and maintenance
 ├── tests/                # Test files
 ├── __pycache__/         # Python cache files
 ├── .pytest_cache/       # Pytest cache
@@ -14,13 +15,17 @@ backend/
 ├── models.py            # SQLAlchemy models
 ├── schemas.py           # Pydantic schemas
 ├── crud.py             # Database operations
-├── main.py             # FastAPI application
+├── main.py             # FastAPI application and endpoints
 ├── auth0.py            # Auth0 authentication
 ├── api_docs.md         # API documentation
 ├── backend_docs.md     # Backend documentation
-├── requirements.txt    # Python dependencies
+├── requirements.txt    # Primary Python dependencies
+├── requirements2.txt   # Extended Python dependencies
 ├── .env               # Environment variables
-└── alembic.ini        # Alembic configuration
+├── Dockerfile         # Container configuration
+├── alembic.ini        # Alembic migration configuration
+├── pytest-local.ini   # Local pytest configuration
+└── seed_reactions.py  # Script for seeding reaction data
 ```
 
 ## Core Components
@@ -56,10 +61,10 @@ backend/
      - `bio`: User biography
    - **Relationships**:
      - `messages`: One-to-many with Message
-     - `channels`: Many-to-many with Channel
+     - `channels`: Many-to-many with Channel through UserChannel
 
 2. `Channel`
-   - **Purpose**: Represents chat channels
+   - **Purpose**: Represents chat channels and DMs
    - **Fields**:
      - `id`: Primary key
      - `name`: Channel name
@@ -67,12 +72,15 @@ backend/
      - `owner_id`: Channel creator's user ID
      - `created_at`: Channel creation timestamp
      - `is_private`: Privacy status
+     - `is_dm`: Direct message flag
      - `join_code`: Invitation code for private channels
    - **Relationships**:
      - `messages`: One-to-many with Message
-     - `users`: Many-to-many with User
+     - `users`: Many-to-many with User through UserChannel
      - `owner`: One-to-one with User
      - `roles`: One-to-many with ChannelRole
+   - **Constraints**:
+     - DM channels must be private
 
 3. `Message`
    - **Purpose**: Represents chat messages and their replies
@@ -93,11 +101,6 @@ backend/
    - **Constraints**:
      - Unique constraint on parent_id (ensures one reply per message)
      - Foreign key constraint from parent_id to messages.id
-   - **Reply Chain Behavior**:
-     - Each message can be replied to once
-     - Replies form a linked list where each reply points to its parent
-     - When replying to a message that already has replies, the new reply is attached to the last message in the chain
-     - The frontend can reconstruct reply chains by following parent_id references
 
 4. `UserChannel`
    - **Purpose**: Association table for user-channel memberships
@@ -143,73 +146,29 @@ backend/
    - **Constraints**:
      - Unique constraint on (message_id, reaction_id, user_id)
 
-### 3. `schemas.py`
-**Purpose**: Defines Pydantic models for request/response validation and serialization
+### 3. `main.py`
+**Purpose**: FastAPI application entry point and route definitions
 
-**Key Schema Categories**:
+**Key Features**:
+- WebSocket connection management for real-time updates
+- CORS configuration
+- Authentication middleware
+- API route definitions for:
+  - User management
+  - Channel operations
+  - Message handling
+  - Reaction management
+  - Direct messaging
+  - Role management
 
-1. Message-related:
-   - `MessageBase`: Base message schema
-   - `MessageCreate`: Message creation schema
-   - `Message`: Complete message schema with relationships
-   - `MessageList`: Paginated message list
+**Dependencies**:
+- FastAPI
+- WebSocket support
+- Auth0 integration
+- Database session management
 
-2. Channel-related:
-   - `ChannelBase`: Base channel schema
-   - `ChannelCreate`: Channel creation schema
-   - `Channel`: Complete channel schema with relationships
-   - `ChannelRole`: Channel role schema
-   - `ChannelInvite`: Channel invitation schema
-   - `ChannelMemberUpdate`: Member role update schema
-   - `ChannelPrivacyUpdate`: Privacy settings schema
-
-3. User-related:
-   - `UserBase`: Base user schema
-   - `UserCreate`: User creation schema
-   - `User`: Complete user schema with relationships
-   - `UserInChannel`: Simplified user representation
-   - `UserBioUpdate`: Bio update schema
-   - `UserNameUpdate`: Name update schema
-
-4. Reaction-related:
-   - `ReactionBase`: Base reaction schema
-   - `ReactionCreate`: Reaction creation schema
-   - `Reaction`: Complete reaction schema
-   - `MessageReactionCreate`: Reaction assignment schema
-   - `MessageReaction`: Complete message reaction schema
-
-5. Authentication:
-   - `Token`: JWT token schema
-   - `TokenData`: Token payload schema
-
-### 4. `crud.py`
-**Purpose**: Implements database operations and business logic
-
-**Key Function Categories**:
-
-1. User Operations:
-   - User retrieval by ID, email, or Auth0 ID
-   - User creation and updates
-   - Auth0 user synchronization
-
-2. Channel Operations:
-   - Channel CRUD operations
-   - Member management
-   - Role management
-   - Privacy settings
-   - Invitation handling
-
-3. Message Operations:
-   - Message CRUD operations
-   - Message retrieval with pagination
-   - Reaction management
-   - Reply chain management:
-     - `find_last_reply_in_chain`: Recursively finds the last message in a reply chain
-     - `create_reply`: Creates a new reply and attaches it to the appropriate parent
-     - `get_channel_messages`: Enhanced to include parent message data for replies
-
-### 5. `auth0.py`
-**Purpose**: Manages Auth0 authentication and authorization
+### 4. `auth0.py`
+**Purpose**: Handles Auth0 authentication and authorization
 
 **Key Features**:
 - JWT token validation
@@ -217,35 +176,40 @@ backend/
 - User authentication middleware
 - Auth0 integration configuration
 
-### 6. `main.py`
-**Purpose**: FastAPI application entry point and route definitions
+**Dependencies**:
+- python-jose[cryptography]
+- Auth0 domain and API identifier from environment variables
 
-**Key Features**:
-- API route definitions
-- WebSocket connection management
-- CORS configuration
-- Authentication middleware
-- Real-time event handling
+### 5. `crud.py`
+**Purpose**: Implements database operations and business logic
 
-## Database Migrations
-The project uses Alembic for database schema migrations. See the Migrations section in the documentation for detailed information about managing database changes.
-
-## WebSocket Events
-The application supports real-time events for:
-- Message operations (create, update, delete)
-- Channel updates
-- Member management
+**Key Operations**:
+- User management (create, read, update)
+- Channel operations (create, read, update, delete)
+- Message handling (create, read, update, delete)
 - Reaction management
+- Role management
+- Direct message handling
 
-For detailed API endpoints and request/response formats, please refer to `api_docs.md`.
+**Dependencies**:
+- SQLAlchemy
+- Database models
+- Pydantic schemas
 
-## Environment Variables
+## Environment Configuration
 Required environment variables:
 - `DB_URL`: PostgreSQL database URL
 - `AUTH0_DOMAIN`: Auth0 domain
 - `AUTH0_API_IDENTIFIER`: Auth0 API identifier
 - `MAX_WEBSOCKET_CONNECTIONS_PER_USER`: Maximum WebSocket connections per user (default: 5)
 - `MAX_TOTAL_WEBSOCKET_CONNECTIONS`: Maximum total WebSocket connections (default: 1000)
+
+## WebSocket Events
+The application supports real-time events for:
+- Message operations (create, update, delete)
+- Channel updates (create, update, privacy changes)
+- Member management (join, leave, role updates)
+- Reaction management (add, remove)
 
 ## Dependencies
 Key dependencies from requirements.txt:
@@ -257,4 +221,5 @@ Key dependencies from requirements.txt:
 - psycopg2-binary: PostgreSQL adapter
 - websockets: WebSocket support
 - alembic: Database migrations
-``` 
+
+For detailed API endpoints and request/response formats, please refer to `api_docs.md`. 
