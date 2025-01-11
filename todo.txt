@@ -65,3 +65,9 @@ TODO List:
 
 31. set up port forwarding on ec2 instance, so https requests hit frontent port 3000
 32. ask if anyone has had luck getting auth0 on ec2 without using a domain name
+
+33. common general channel that everyone is added to when they sign up
+34. personal dm channel with self
+35. fix default image error when making a new account with email/password
+36. bug when selecting a new dm, if you have no message history, runtime error, channel still made tho
+37. when clickinga user profile from the channel member list, it opens the user profile modal, but the user profile modal is squished into the memeber list popout

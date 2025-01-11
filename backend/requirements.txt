@@ -11,3 +11,4 @@ websockets>=10.0.0,<11.0.0
 alembic>=1.7.7,<1.8.0
 psycopg2-binary>=2.9.3,<2.10.0
 requests>=2.31.0,<3.0.0
+Faker>=22.7.0,<23.0.0
