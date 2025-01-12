@@ -6,58 +6,250 @@ All endpoints except WebSocket connections require a valid JWT token in the Auth
 Authorization: Bearer <token>
 ```
 
-## User Management
+### Sync Auth0 User
+**Endpoint**: `POST /auth/sync`  
+**Description**: Synchronize Auth0 user data with local database.
 
-### Get Current User
-**Endpoint**: `GET /users/me`
-**Description**: Get the current authenticated user's profile.
+**Request Body**:
+```json
+{
+    "auth0_id": "auth0|123",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "picture": "https://example.com/avatar.jpg"
+}
+```
+
+**Response**: User object
+
+### Verify Auth
+**Endpoint**: `GET /auth/verify`  
+**Description**: Verify Auth0 token and return user data.
 
 **Response**:
 ```json
 {
-    "id": 1,
-    "email": "user@example.com",
-  "name": "John Doe",
-  "picture": "https://example.com/avatar.jpg",
-  "bio": "User biography",
-    "is_active": true,
-  "created_at": "2024-03-15T12:34:56.789Z"
+    "valid": true,
+    "user": {
+        "id": 1,
+        "email": "user@example.com",
+        "name": "John Doe",
+        "picture": "https://example.com/avatar.jpg",
+        "bio": "User biography",
+        "is_active": true,
+        "created_at": "2024-03-15T12:34:56.789Z"
+    }
 }
 ```
+
+## User Management
+
+### Get Current User
+**Endpoint**: `GET /users/me`  
+**Description**: Get the current authenticated user's profile.
+
+**Response**: User object
+
+### Get Users by Last DM
+**Endpoint**: `GET /users/by-last-dm`  
+**Description**: Get all users ordered by their last DM interaction with the current user. Users with no DM history appear first.
+
+**Query Parameters**:
+- `skip`: Number of users to skip (default: 0)
+- `limit`: Maximum number of users to return (default: 100)
+
+**Response**: Array of UserWithLastDM objects
+```json
+[
+    {
+        "user": {
+            "id": 1,
+            "email": "user@example.com",
+            "name": "John Doe"
+        },
+        "last_dm_at": "2024-03-15T12:34:56.789Z",
+        "channel_id": 123
+    }
+]
+```
+
+### Get All Users
+**Endpoint**: `GET /users`  
+**Description**: Get a list of all users.
+
+**Query Parameters**:
+- `skip`: Number of users to skip (default: 0)
+- `limit`: Maximum number of users to return (default: 100)
+
+**Response**: Array of User objects
+
+### Get User by ID
+**Endpoint**: `GET /users/{user_id}`  
+**Description**: Get a specific user's profile.
+
+**Response**: User object
+
+### Update User Bio
+**Endpoint**: `PUT /users/me/bio`  
+**Description**: Update the current user's bio.
+
+**Request Body**:
+```json
+{
+    "bio": "New biography text"
+}
+```
+
+**Response**: Updated User object
+
+### Update User Name
+**Endpoint**: `PUT /users/me/name`  
+**Description**: Update the current user's name.
+
+**Request Body**:
+```json
+{
+    "name": "New Name"
+}
+```
+
+**Response**: Updated User object
 
 ## Channel Management
 
 ### Create Channel
-**Endpoint**: `POST /channels`
+**Endpoint**: `POST /channels`  
 **Description**: Create a new channel.
 
 **Request Body**:
 ```json
 {
     "name": "general",
-  "description": "General discussion",
-    "is_private": false
+    "description": "General discussion"
 }
 ```
 
 **Response**: Channel object
 
+### Get User Channels
+**Endpoint**: `GET /channels/me`  
+**Description**: Get all channels the current user is a member of.
+
+**Query Parameters**:
+- `skip`: Number of channels to skip (default: 0)
+- `limit`: Maximum number of channels to return (default: 100)
+
+**Response**: Array of Channel objects
+
+### Get Available Channels
+**Endpoint**: `GET /channels/available`  
+**Description**: Get all public channels that the user can join.
+
+**Query Parameters**:
+- `skip`: Number of channels to skip (default: 0)
+- `limit`: Maximum number of channels to return (default: 50)
+
+**Response**: Array of Channel objects
+
 ### Get Channel
-**Endpoint**: `GET /channels/{channel_id}`
+**Endpoint**: `GET /channels/{channel_id}`  
 **Description**: Get channel details.
 
 **Response**: Channel object with members
 
+### Update Channel
+**Endpoint**: `PUT /channels/{channel_id}`  
+**Description**: Update channel details. Only channel owner can perform this action.
+
+**Request Body**:
+```json
+{
+    "name": "new-name",
+    "description": "Updated description"
+}
+```
+
+**Response**: Updated Channel object
+
+### Delete Channel
+**Endpoint**: `DELETE /channels/{channel_id}`  
+**Description**: Delete a channel. Only channel owner can perform this action.
+
+**Response**: Deleted Channel object
+
 ### Join Channel
-**Endpoint**: `POST /channels/{channel_id}/join`
+**Endpoint**: `POST /channels/{channel_id}/join`  
 **Description**: Join a public channel.
 
 **Response**: Channel object
 
+### Leave Channel
+**Endpoint**: `POST /channels/{channel_id}/leave`  
+**Description**: Leave a channel. If the owner leaves, ownership is transferred to another member.
+
+**Response**:
+```json
+{
+    "message": "Successfully left the channel"
+}
+```
+
+### Get Channel Members
+**Endpoint**: `GET /channels/{channel_id}/members`  
+**Description**: Get all members of a channel.
+
+**Response**: Array of UserInChannel objects
+
+### Remove Channel Member
+**Endpoint**: `DELETE /channels/{channel_id}/members/{user_id}`  
+**Description**: Remove a member from a channel. Only channel owner can perform this action.
+
+**Response**:
+```json
+{
+    "message": "Member removed successfully"
+}
+```
+
+### Update Channel Privacy
+**Endpoint**: `PUT /channels/{channel_id}/privacy`  
+**Description**: Update channel privacy settings. Only channel owner can perform this action.
+
+**Request Body**:
+```json
+{
+    "is_private": true
+}
+```
+
+**Response**: Updated Channel object
+
+### Get User Channel Role
+**Endpoint**: `GET /channels/{channel_id}/role`  
+**Description**: Get a user's role in a channel.
+
+**Query Parameters**:
+- `user_id`: ID of the user to get role for
+
+**Response**: ChannelRole object
+
+### Update Channel Role
+**Endpoint**: `PUT /channels/{channel_id}/roles/{user_id}`  
+**Description**: Update a user's role in a channel. Only channel owner can perform this action.
+
+**Request Body**:
+```json
+{
+    "role": "moderator"
+}
+```
+
+**Response**: Updated ChannelRole object
+
 ## Message Management
 
 ### Create Message
-**Endpoint**: `POST /channels/{channel_id}/messages`
+**Endpoint**: `POST /channels/{channel_id}/messages`  
 **Description**: Create a new message in a channel.
 
 **Request Body**:
@@ -70,81 +262,134 @@ Authorization: Bearer <token>
 **Response**: Message object
 
 ### Get Channel Messages
-**Endpoint**: `GET /channels/{channel_id}/messages`
+**Endpoint**: `GET /channels/{channel_id}/messages`  
 **Description**: Get messages in a channel.
 
 **Query Parameters**:
-- `limit`: Maximum number of messages (default: 50)
-- `before`: Get messages before this timestamp
-- `after`: Get messages after this timestamp
+- `skip`: Number of messages to skip (default: 0)
+- `limit`: Maximum number of messages to return (default: 50)
+- `include_reactions`: Whether to include message reactions (default: false)
+- `parent_only`: Whether to only include parent messages (default: true)
+
+**Response**:
+```json
+{
+    "messages": [Message],
+    "total": 100,
+    "has_more": true
+}
+```
+
+### Update Message
+**Endpoint**: `PUT /channels/{channel_id}/messages/{message_id}`  
+**Description**: Update a message. Only message author can perform this action.
+
+**Request Body**:
+```json
+{
+    "content": "Updated message content"
+}
+```
+
+**Response**: Updated Message object
+
+### Delete Message
+**Endpoint**: `DELETE /channels/{channel_id}/messages/{message_id}`  
+**Description**: Delete a message. Only message author can perform this action.
+
+**Response**: Deleted Message object
+
+### Create Message Reply
+**Endpoint**: `POST /channels/{channel_id}/messages/{parent_id}/reply`  
+**Description**: Create a reply to a message.
+
+**Request Body**:
+```json
+{
+    "content": "Reply message content"
+}
+```
+
+**Response**: Message object
+
+### Get Message Reply Chain
+**Endpoint**: `GET /messages/{message_id}/reply-chain`  
+**Description**: Get all messages in a reply chain, including parent messages and replies.
 
 **Response**: Array of Message objects
 
-## File Management
+## Direct Messages (DM)
 
-### Upload File
-**Endpoint**: `POST /files/upload`
-**Description**: Upload a file to be attached to a message.
+### Create DM Channel
+**Endpoint**: `POST /channels/dm`  
+**Description**: Create a new DM channel with multiple users.
 
-**Request**:
-- Content-Type: `multipart/form-data`
-- Body:
-  - `file`: File to upload (required)
-  - `message_id`: Integer - ID of the message to attach the file to (required)
+**Request Body**:
+```json
+{
+    "user_ids": [1, 2, 3],
+    "name": "Optional group name"
+}
+```
+
+**Response**: Channel object
+
+### Get User DMs
+**Endpoint**: `GET /channels/me/dms`  
+**Description**: Get all DM channels for the current user, ordered by most recent message.
+
+**Query Parameters**:
+- `skip`: Number of channels to skip (default: 0)
+- `limit`: Maximum number of channels to return (default: 100)
+
+**Response**: Array of Channel objects
+
+### Check Existing DM
+**Endpoint**: `GET /channels/dm/check/{other_user_id}`  
+**Description**: Check if there's an existing one-on-one DM channel between the current user and another user.
 
 **Response**:
 ```json
 {
-    "id": 1,
-  "message_id": 123,
-  "file_name": "example.pdf",
-  "content_type": "application/pdf",
-  "file_size": 1024567,
-  "s3_key": "messages/123/20240315-123456-abcd1234.pdf",
-  "uploaded_at": "2024-03-15T12:34:56.789Z",
-  "uploaded_by": 456,
-  "is_deleted": false
+    "channel_id": 123
 }
 ```
 
-**Error Responses**:
-- `400 Bad Request`: Invalid file type or size
-- `403 Forbidden`: User not authorized to upload to this message
-- `404 Not Found`: Message not found
-- `500 Internal Server Error`: S3 upload failed
+## Reactions
 
-### Get Download URL
-**Endpoint**: `GET /files/{file_id}/download-url`
-**Description**: Get a presigned URL for downloading a file.
+### List Reactions
+**Endpoint**: `GET /reactions`  
+**Description**: Get all available reactions.
+
+**Query Parameters**:
+- `skip`: Number of reactions to skip (default: 0)
+- `limit`: Maximum number of reactions to return (default: 100)
+
+**Response**: Array of Reaction objects
+
+### Add Reaction
+**Endpoint**: `POST /channels/{channel_id}/messages/{message_id}/reactions`  
+**Description**: Add a reaction to a message.
+
+**Request Body**:
+```json
+{
+    "reaction_id": 1
+}
+```
+
+**Response**: MessageReaction object
+
+### Remove Reaction
+**Endpoint**: `DELETE /channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}`  
+**Description**: Remove a reaction from a message.
 
 **Response**:
 ```json
 {
-  "download_url": "https://s3.amazonaws.com/...",
-  "expires_at": "2024-03-15T13:34:56.789Z"
+    "message": "Reaction removed successfully"
 }
 ```
-
-**Error Responses**:
-- `403 Forbidden`: User not authorized to access this file
-- `404 Not Found`: File not found
-- `500 Internal Server Error`: Failed to generate presigned URL
-
-### Delete File
-**Endpoint**: `DELETE /files/{file_id}`
-**Description**: Soft delete a file upload.
-
-**Response**:
-```json
-{
-  "message": "File deleted successfully"
-}
-```
-
-**Error Responses**:
-- `403 Forbidden`: User not authorized to delete this file
-- `404 Not Found`: File not found
-- `500 Internal Server Error`: Failed to delete file
 
 ## WebSocket Events
 
@@ -160,71 +405,128 @@ ws://localhost:8000/ws?token=<jwt_token>
 ```json
 {
     "type": "new_message",
-  "channel_id": 123,
+    "channel_id": 123,
     "message": {
         "id": 1,
         "content": "Hello, world!",
-    "created_at": "2024-03-15T12:34:56.789Z",
-    "user_id": 456,
-    "channel_id": 123,
+        "created_at": "2024-03-15T12:34:56.789Z",
+        "user_id": 456,
+        "channel_id": 123,
         "user": {
-      "id": 456,
+            "id": 456,
             "email": "user@example.com",
-      "name": "John Doe"
+            "name": "John Doe"
+        }
     }
+}
+```
+
+#### Message Update
+```json
+{
+    "type": "message_update",
+    "channel_id": 123,
+    "message": {
+        "id": 1,
+        "content": "Updated content",
+        "created_at": "2024-03-15T12:34:56.789Z",
+        "updated_at": "2024-03-15T12:35:00.000Z",
+        "user_id": 456,
+        "channel_id": 123,
+        "user": {
+            "id": 456,
+            "email": "user@example.com",
+            "name": "John Doe"
+        }
     }
+}
+```
+
+#### Message Delete
+```json
+{
+    "type": "message_delete",
+    "channel_id": 123,
+    "message_id": 1
 }
 ```
 
 ### Channel Events
 
-#### Member Joined
+#### Channel Update
 ```json
 {
-    "type": "member_joined",
-  "channel_id": 123,
-    "user": {
-    "id": 456,
-        "email": "user@example.com",
-    "name": "John Doe",
-    "picture": "https://example.com/avatar.jpg"
+    "type": "channel_update",
+    "channel_id": 123,
+    "channel": {
+        "id": 123,
+        "name": "updated-name",
+        "description": "Updated description",
+        "owner_id": 456
     }
 }
 ```
 
-### File Events
-
-#### File Upload
+#### Member Joined
 ```json
 {
-  "type": "file_upload",
-  "channel_id": 123,
-  "file": {
-        "id": 1,
-    "message_id": 456,
-    "file_name": "example.pdf",
-    "content_type": "application/pdf",
-    "file_size": 1024567,
-    "uploaded_at": "2024-03-15T12:34:56.789Z",
-    "uploaded_by": 789
-  },
-  "message": {
-    "id": 456,
-    "content": "File attachment",
-    "user_id": 789,
+    "type": "member_joined",
     "channel_id": 123,
-    "created_at": "2024-03-15T12:34:56.789Z"
-  }
+    "user": {
+        "id": 456,
+        "email": "user@example.com",
+        "name": "John Doe",
+        "picture": "https://example.com/avatar.jpg"
+    }
 }
 ```
 
-#### File Deleted
+#### Member Left
 ```json
 {
-  "type": "file_deleted",
-  "channel_id": 123,
-  "file_id": 1,
-  "message_id": 456
+    "type": "member_left",
+    "channel_id": 123,
+    "user_id": 456
+}
+```
+
+### Reaction Events
+
+#### Reaction Added
+```json
+{
+    "type": "message_reaction_add",
+    "channel_id": 123,
+    "message_id": 456,
+    "reaction": {
+        "id": 1,
+        "reaction_id": 2,
+        "user_id": 789,
+        "created_at": "2024-03-15T12:34:56.789Z",
+        "reaction": {
+            "id": 2,
+            "code": ":smile:",
+            "is_system": true,
+            "image_url": "https://example.com/smile.png"
+        },
+        "user": {
+            "id": 789,
+            "email": "user@example.com",
+            "name": "John Doe",
+            "picture": "https://example.com/avatar.jpg"
+        }
+    }
+}
+```
+
+#### Reaction Removed
+```json
+{
+    "type": "message_reaction_remove",
+    "channel_id": 123,
+    "message_id": 456,
+    "reaction_id": 2,
+    "user_id": 789
 }
 ```
 
@@ -234,21 +536,16 @@ ws://localhost:8000/ws?token=<jwt_token>
 - `ROOT_PATH`: Root path for the API (optional)
 - `PORT`: Server port (default: 8000)
 
-### Database Configuration
-- `DB_URL`: PostgreSQL database URL
-
-### Auth0 Configuration
-- `AUTH0_DOMAIN`: Auth0 domain
-- `AUTH0_API_IDENTIFIER`: Auth0 API identifier
+### Rate Limiting Configuration
+- `MAX_SEARCH_REQUESTS_PER_MINUTE`: Maximum search requests per minute per user (default: 60)
+- `SEARCH_RATE_LIMIT_WINDOW`: Time window in seconds for rate limiting (default: 60)
 
 ### WebSocket Configuration
 - `MAX_WEBSOCKET_CONNECTIONS_PER_USER`: Maximum WebSocket connections per user (default: 5)
 - `MAX_TOTAL_WEBSOCKET_CONNECTIONS`: Maximum total WebSocket connections (default: 1000)
 
-### File Storage Configuration
-- `AWS_ACCESS_KEY_ID`: AWS access key for S3 access
-- `AWS_SECRET_ACCESS_KEY`: AWS secret key for S3 access
-- `AWS_S3_BUCKET_NAME`: S3 bucket name for file storage
-- `AWS_S3_REGION`: AWS region for S3 (default: us-east-1)
-- `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 50)
-- `ALLOWED_FILE_TYPES`: Comma-separated list of allowed MIME types (default: "image/*,application/pdf,text/*") 
+### Auth0 Configuration
+- `AUTH0_DOMAIN`: Auth0 domain for authentication
+
+### Database Configuration
+- `DATABASE_URL`: PostgreSQL database connection URL 

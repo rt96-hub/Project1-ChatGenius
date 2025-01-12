@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
 import type { Channel } from '../types/channel';
 import ChannelCard from './ChannelCard';
+import { SearchInput } from './SearchInput';
+import { useSearch } from '@/hooks/useSearch';
+import { useSearchApi } from '@/lib/api/search';
 
 interface ChannelListPopoutProps {
     isOpen: boolean;
@@ -12,31 +15,40 @@ interface ChannelListPopoutProps {
 
 export default function ChannelListPopout({ isOpen, onClose, onChannelJoin }: ChannelListPopoutProps) {
     const api = useApi();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [channels, setChannels] = useState<Channel[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
+    const searchApi = useSearchApi();
+    const [baseChannels, setBaseChannels] = useState<Channel[]>([]);
     const [joiningChannelId, setJoiningChannelId] = useState<number | null>(null);
+    const [error, setError] = useState('');
+
+    const { query, setQuery, results: searchResults, isLoading: isSearching } = useSearch<Channel[]>({
+        searchFn: async (query) => {
+            const response = await searchApi.searchChannels({ 
+                query,
+                is_dm: false,
+                include_private: false
+            });
+            return response.channels;
+        },
+        debounceMs: 300
+    });
 
     const fetchChannels = useCallback(async () => {
-        setIsLoading(true);
         setError('');
         try {
             const response = await api.get('/channels/available');
-            setChannels(response.data);
+            setBaseChannels(response.data);
         } catch (error) {
             console.error('Failed to fetch available channels:', error);
             setError('Failed to load available channels');
-        } finally {
-            setIsLoading(false);
         }
     }, [api]);
 
     useEffect(() => {
         if (isOpen) {
             fetchChannels();
+            setQuery(''); // Reset search when opening
         }
-    }, [isOpen, fetchChannels]);
+    }, [isOpen, fetchChannels, setQuery]);
 
     const handleJoinChannel = async (channelId: number) => {
         setJoiningChannelId(channelId);
@@ -53,10 +65,8 @@ export default function ChannelListPopout({ isOpen, onClose, onChannelJoin }: Ch
         }
     };
 
-    const filteredChannels = channels.filter(channel => 
-        channel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (channel.description?.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    // Use search results if there's a query, otherwise use base channels
+    const displayedChannels = query ? (searchResults || []) : baseChannels;
 
     if (!isOpen) return null;
 
@@ -90,29 +100,27 @@ export default function ChannelListPopout({ isOpen, onClose, onChannelJoin }: Ch
                     </h3>
 
                     {/* Search Bar */}
-                    <div className="relative mt-4">
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                    <div className="mt-4">
+                        <SearchInput
+                            value={query}
+                            onChange={setQuery}
                             placeholder="Search channels..."
-                            className="w-full pl-10 pr-3 py-2 text-gray-900 bg-white rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                            isLoading={isSearching}
                         />
-                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                     </div>
 
                     {/* Channel List */}
                     <div className="mt-6 space-y-4 max-h-[60vh] overflow-y-auto">
-                        {isLoading ? (
-                            <div className="text-center text-gray-500">Loading channels...</div>
+                        {isSearching ? (
+                            <div className="text-center text-gray-500">Searching channels...</div>
                         ) : error ? (
                             <div className="text-center text-red-500">{error}</div>
-                        ) : filteredChannels.length === 0 ? (
+                        ) : displayedChannels.length === 0 ? (
                             <div className="text-center text-gray-500">
-                                {searchQuery ? 'No channels found matching your search' : 'No channels available to join'}
+                                {query ? 'No channels found matching your search' : 'No channels available to join'}
                             </div>
                         ) : (
-                            filteredChannels.map(channel => (
+                            displayedChannels.map(channel => (
                                 <ChannelCard
                                     key={channel.id}
                                     channel={channel}

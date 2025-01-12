@@ -1,11 +1,28 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional, ForwardRef
+from typing import List, Optional, ForwardRef, Generic, TypeVar
 from pydantic import EmailStr
+
+# Type variable for generic search response
+T = TypeVar('T')
 
 # Forward references for circular dependencies
 Message = ForwardRef('Message')
 MessageReaction = ForwardRef('MessageReaction')
+
+class SearchHighlight(BaseModel):
+    """Base class for search result highlighting"""
+    content: Optional[List[str]] = None
+    name: Optional[List[str]] = None
+    email: Optional[List[str]] = None
+    description: Optional[List[str]] = None
+    file_name: Optional[List[str]] = None
+    message_content: Optional[List[str]] = None
+
+class SearchResponse(BaseModel, Generic[T]):
+    """Generic search response wrapper"""
+    total: int
+    items: List[T]
 
 class MessageBase(BaseModel):
     content: str
@@ -38,6 +55,9 @@ class FileUpload(FileUploadBase):
     uploaded_at: datetime
     uploaded_by: int
     is_deleted: bool = False
+    channel_id: Optional[int] = None
+    message_content: Optional[str] = None
+    highlight: Optional[SearchHighlight] = None
 
     class Config:
         orm_mode = True
@@ -88,6 +108,7 @@ class Message(MessageBase):
     reactions: List[MessageReaction] = []
     parent: Optional['Message'] = None
     files: List[FileUpload] = []
+    highlight: Optional[SearchHighlight] = None
 
     class Config:
         orm_mode = True
@@ -115,6 +136,8 @@ class Channel(ChannelBase):
     owner_id: int
     users: List[UserInChannel] = []
     messages: List[Message] = []
+    highlight: Optional[SearchHighlight] = None
+    member_count: Optional[int] = None
 
     class Config:
         orm_mode = True
@@ -141,6 +164,7 @@ class User(UserBase):
     created_at: datetime
     channels: List[Channel] = []
     messages: List[Message] = []
+    highlight: Optional[SearchHighlight] = None
 
     class Config:
         orm_mode = True
@@ -159,6 +183,49 @@ class MessageList(BaseModel):
 
     class Config:
         orm_mode = True
+
+class UserList(BaseModel):
+    users: List[User]
+    total: int
+    has_more: bool
+
+    class Config:
+        orm_mode = True
+
+class ChannelList(BaseModel):
+    channels: List[Channel]
+    total: int
+    has_more: bool
+
+    class Config:
+        orm_mode = True
+
+class FileList(BaseModel):
+    files: List[FileUpload]
+    total: int
+    has_more: bool
+
+    class Config:
+        orm_mode = True
+
+class MessageSearch(Message):
+    """Message search result with highlighting"""
+    highlight: Optional[SearchHighlight] = None
+
+class UserSearch(User):
+    """User search result with highlighting"""
+    highlight: Optional[SearchHighlight] = None
+
+class ChannelSearch(Channel):
+    """Channel search result with highlighting"""
+    highlight: Optional[SearchHighlight] = None
+    member_count: Optional[int] = None
+
+class FileSearch(FileUpload):
+    """File search result with highlighting"""
+    highlight: Optional[SearchHighlight] = None
+    channel_id: Optional[int] = None
+    message_content: Optional[str] = None
 
 class ChannelRoleBase(BaseModel):
     role: str

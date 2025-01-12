@@ -1,15 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
-
-interface User {
-    id: number;
-    email: string;
-    name: string;
-    picture?: string;
-    bio?: string;
-}
+import { SearchInput } from './SearchInput';
+import { useSearch } from '@/hooks/useSearch';
+import { useSearchApi } from '@/lib/api/search';
+import type { User } from '@/types/user';
 
 interface UserWithLastDM {
     user: User;
@@ -25,16 +20,30 @@ interface NewDMModalProps {
 
 export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalProps) {
     const api = useApi();
-    const [searchQuery, setSearchQuery] = useState('');
-    const [users, setUsers] = useState<UserWithLastDM[]>([]);
+    const searchApi = useSearchApi();
+    const [baseUsers, setBaseUsers] = useState<UserWithLastDM[]>([]);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const { query, setQuery, results: searchResults, isLoading: isSearching } = useSearch<UserWithLastDM[]>({
+        searchFn: async (query) => {
+            const response = await searchApi.searchUsers({ query });
+            // Transform search results to match UserWithLastDM format
+            const usersWithDM = response.users.map((user: User) => ({
+                user,
+                last_dm_at: null,
+                channel_id: null
+            }));
+            return usersWithDM;
+        },
+        debounceMs: 300
+    });
 
     const fetchUsers = useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await api.get('/users/by-last-dm');
-            setUsers(response.data);
+            setBaseUsers(response.data);
             setError('');
         } catch (error) {
             console.error('Failed to fetch users:', error);
@@ -47,8 +56,9 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
     useEffect(() => {
         if (isOpen) {
             fetchUsers();
+            setQuery(''); // Reset search when opening
         }
-    }, [isOpen, fetchUsers]);
+    }, [isOpen, fetchUsers, setQuery]);
 
     const handleDMAction = async (userId: number, existingChannelId: number | null) => {
         try {
@@ -70,6 +80,9 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
         }
     };
 
+    // Use search results if there's a query, otherwise use base users
+    const displayedUsers = query ? (searchResults || []) : baseUsers;
+
     if (!isOpen) return null;
 
     return (
@@ -78,26 +91,30 @@ export default function NewDMModal({ isOpen, onClose, onDMCreated }: NewDMModalP
                 <h2 className="text-xl font-bold mb-4 text-gray-900">New Direct Message</h2>
                 
                 {/* Search Bar */}
-                <div className="relative mb-4">
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                <div className="mb-4">
+                    <SearchInput
+                        value={query}
+                        onChange={setQuery}
                         placeholder="Search users..."
-                        className="w-full pl-10 pr-3 py-2 text-gray-900 bg-white rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        isLoading={isSearching}
                     />
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                 </div>
 
                 {/* Users List */}
                 <div className="max-h-96 overflow-y-auto">
-                    {isLoading ? (
-                        <div className="text-center py-4 text-gray-500">Loading users...</div>
+                    {(isLoading || isSearching) ? (
+                        <div className="text-center py-4 text-gray-500">
+                            {isSearching ? 'Searching users...' : 'Loading users...'}
+                        </div>
                     ) : error ? (
                         <div className="text-center py-4 text-red-500">{error}</div>
+                    ) : displayedUsers.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500">
+                            {query ? 'No users found matching your search' : 'No users available'}
+                        </div>
                     ) : (
                         <ul className="space-y-2">
-                            {users.map(({ user, last_dm_at, channel_id }) => (
+                            {displayedUsers.map(({ user, last_dm_at, channel_id }) => (
                                 <li key={user.id}>
                                     <button
                                         onClick={() => handleDMAction(user.id, channel_id)}

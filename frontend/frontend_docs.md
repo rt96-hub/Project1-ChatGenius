@@ -304,3 +304,45 @@ The frontend is built using multi-stage Docker builds:
 - See `contexts/contexts_docs.md` for state management
 - See `lib/lib_docs.md` for utilities
 - See `public/public_docs.md` for assets 
+
+## Search Components and Functionality
+
+### Search Hook (`hooks/useSearch.ts`)
+- Generic hook for handling debounced search functionality
+- Manages search state, loading state, and error handling
+- Configurable debounce time (default: 300ms)
+- Type-safe with TypeScript generics
+
+### Search API (`lib/api/search.ts`)
+- Centralized API functions for all search endpoints
+- Type-safe interfaces for search parameters
+- Handles requests to:
+  - Message search
+  - User search
+  - Channel search
+  - File search
+
+### SearchInput Component (`components/SearchInput.tsx`)
+- Reusable search input with loading state
+- Consistent styling with Tailwind CSS
+- Loading spinner for active searches
+- Search icon from Heroicons
+
+### Usage Example
+```typescript
+const MyComponent = () => {
+  const { query, setQuery, results, isLoading } = useSearch({
+    searchFn: (q) => searchUsers({ query: q }),
+    debounceMs: 300,
+  });
+
+  return (
+    <SearchInput
+      value={query}
+      onChange={setQuery}
+      isLoading={isLoading}
+      placeholder="Search users..."
+    />
+  );
+};
+``` 

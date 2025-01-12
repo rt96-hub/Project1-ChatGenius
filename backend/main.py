@@ -10,7 +10,9 @@ import os
 from dotenv import load_dotenv
 import logging
 from file_uploads import router as file_uploads_router
+from search import router as search_router
 from websocket_manager import manager
+from middleware import SearchRateLimitMiddleware, CacheControlMiddleware
 
 # Configure logging for errors only
 logging.basicConfig(level=logging.ERROR)
@@ -21,6 +23,8 @@ load_dotenv()
 MAX_CONNECTIONS_PER_USER = int(os.getenv('MAX_WEBSOCKET_CONNECTIONS_PER_USER', '5'))
 MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000'))
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
+MAX_SEARCH_REQUESTS = int(os.getenv('MAX_SEARCH_REQUESTS_PER_MINUTE', '60'))
+SEARCH_WINDOW_SIZE = int(os.getenv('SEARCH_RATE_LIMIT_WINDOW', '60'))
 
 # Create the main app without root_path
 app = FastAPI()
@@ -42,6 +46,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting and caching middleware
+app.add_middleware(
+    SearchRateLimitMiddleware,
+    window_size=SEARCH_WINDOW_SIZE,
+    max_requests=MAX_SEARCH_REQUESTS
+)
+app.add_middleware(CacheControlMiddleware)
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -1007,6 +1019,7 @@ async def join_channel_endpoint(
 # Include the router with the prefix
 app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))
 app.include_router(file_uploads_router, prefix=os.getenv('ROOT_PATH', ''), tags=["files"])
+app.include_router(search_router, prefix=os.getenv('ROOT_PATH', ''), tags=["search"])
 
 if __name__ == "__main__":
     import uvicorn
