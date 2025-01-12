@@ -113,4 +113,5 @@ dump.rdb
 *.sqlite
 
 backend/.env
-
+docker-compose.yml
+docker-compose.*.yml
