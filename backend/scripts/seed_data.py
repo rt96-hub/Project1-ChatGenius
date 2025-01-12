@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Initialize Faker
 fake = Faker()
 
-def create_fake_users(db: Session, count: int = 50) -> List[User]:
+def create_fake_users(db: Session, count: int = 10) -> List[User]:
     """
     Create fake users with realistic data.
     
@@ -72,7 +72,7 @@ def create_fake_users(db: Session, count: int = 50) -> List[User]:
     
     return users
 
-def create_fake_channels(db: Session, users: List[User], count: int = 10) -> List[Channel]:
+def create_fake_channels(db: Session, users: List[User], count: int = 5) -> List[Channel]:
     """
     Create fake channels with a mix of regular and DM channels.
     
@@ -185,7 +185,7 @@ def get_channel_members(db: Session, channel_id: int) -> List[User]:
     user_channels = db.query(UserChannel).filter(UserChannel.channel_id == channel_id).all()
     return [uc.user_id for uc in user_channels]
 
-def create_fake_messages(db: Session, channels: List[Channel], users: List[User], messages_per_channel: int = 100) -> List[Message]:
+def create_fake_messages(db: Session, channels: List[Channel], users: List[User], messages_per_channel: int = 30) -> List[Message]:
     """
     Create fake messages in channels with replies.
     
