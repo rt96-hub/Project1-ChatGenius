@@ -23,6 +23,25 @@ class UserInChannel(BaseModel):
     class Config:
         orm_mode = True
 
+class FileUploadBase(BaseModel):
+    file_name: str
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
+
+class FileUploadCreate(FileUploadBase):
+    pass
+
+class FileUpload(FileUploadBase):
+    id: int
+    message_id: int
+    s3_key: str
+    uploaded_at: datetime
+    uploaded_by: int
+    is_deleted: bool = False
+
+    class Config:
+        orm_mode = True
+
 class ReactionBase(BaseModel):
     code: str
     is_system: bool = True
@@ -68,6 +87,7 @@ class Message(MessageBase):
     user: UserInChannel
     reactions: List[MessageReaction] = []
     parent: Optional['Message'] = None
+    files: List[FileUpload] = []
 
     class Config:
         orm_mode = True
@@ -172,4 +192,3 @@ class DMCheckResponse(BaseModel):
 
     class Config:
         orm_mode = True
-

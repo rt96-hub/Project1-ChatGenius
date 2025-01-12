@@ -9,6 +9,8 @@ import asyncio
 import os
 from dotenv import load_dotenv
 import logging
+from file_uploads import router as file_uploads_router
+from websocket_manager import manager
 
 # Configure logging for errors only
 logging.basicConfig(level=logging.ERROR)
@@ -52,211 +54,6 @@ def get_db():
     finally:
         db.close()
 
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: Dict[WebSocket, int] = {}
-        self.user_connections: Dict[int, List[WebSocket]] = {}
-        self.user_channels: Dict[int, Set[int]] = {}
-        self.total_connections = 0
-
-    async def connect(self, websocket: WebSocket, user_id: int, channels: list[int]):
-        if self.total_connections >= MAX_TOTAL_CONNECTIONS:
-            await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
-            return False
-
-        if user_id in self.user_connections and len(self.user_connections[user_id]) >= MAX_CONNECTIONS_PER_USER:
-            await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
-            return False
-
-        await websocket.accept()
-        
-        if user_id not in self.user_connections:
-            self.user_connections[user_id] = []
-        
-        self.user_connections[user_id].append(websocket)
-        self.user_channels[user_id] = set(channels)
-        self.total_connections += 1
-        return True
-
-    def disconnect(self, websocket: WebSocket, user_id: int):
-        if user_id in self.user_connections:
-            if websocket in self.user_connections[user_id]:
-                self.user_connections[user_id].remove(websocket)
-                self.total_connections -= 1
-                
-                if not self.user_connections[user_id]:
-                    del self.user_connections[user_id]
-                    del self.user_channels[user_id]
-
-    def add_channel_for_user(self, user_id: int, channel_id: int):
-        if user_id in self.user_channels:
-            self.user_channels[user_id].add(channel_id)
-
-    async def broadcast_to_channel(self, message: dict, channel_id: int):
-        disconnected_websockets = []
-        for user_id, channels in self.user_channels.items():
-            if channel_id in channels:
-                if user_id in self.user_connections:
-                    for websocket in self.user_connections[user_id]:
-                        try:
-                            await websocket.send_json(message)
-                        except RuntimeError:
-                            disconnected_websockets.append((websocket, user_id))
-        
-        for websocket, user_id in disconnected_websockets:
-            self.disconnect(websocket, user_id)
-
-    async def broadcast_member_joined(self, channel_id: int, user: schemas.User):
-        message = {
-            "type": "member_joined",
-            "channel_id": channel_id,
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "name": user.name,
-                "picture": user.picture
-            }
-        }
-        await self.broadcast_to_channel(message, channel_id)
-
-    async def broadcast_member_left(self, channel_id: int, user_id: int):
-        message = {
-            "type": "member_left",
-            "channel_id": channel_id,
-            "user_id": user_id
-        }
-        await self.broadcast_to_channel(message, channel_id)
-
-    async def broadcast_role_updated(self, channel_id: int, user_id: int, role: str):
-        message = {
-            "type": "role_updated",
-            "channel_id": channel_id,
-            "user_id": user_id,
-            "role": role
-        }
-        await self.broadcast_to_channel(message, channel_id)
-
-    async def broadcast_privacy_updated(self, channel_id: int, is_private: bool):
-        message = {
-            "type": "privacy_updated",
-            "channel_id": channel_id,
-            "is_private": is_private
-        }
-        await self.broadcast_to_channel(message, channel_id)
-
-    async def broadcast_channel_created(self, channel: models.Channel):
-        """Broadcast channel creation event to all members of the channel."""
-        message = {
-            "type": "channel_created",
-            "channel": {
-                "id": channel.id,
-                "name": channel.name,
-                "description": channel.description,
-                "owner_id": channel.owner_id,
-                "created_at": channel.created_at.isoformat(),
-                "is_private": channel.is_private,
-                "is_dm": channel.is_dm,
-                "users": [
-                    {
-                        "id": user.id,
-                        "email": user.email,
-                        "name": user.name,
-                        "picture": user.picture
-                    } for user in channel.users
-                ]
-            }
-        }
-        await self.broadcast_to_channel(message, channel.id)
-
-manager = ConnectionManager()
-
-# Auth endpoints
-@api_router.post("/auth/sync", response_model=schemas.User)
-async def sync_auth0_user_endpoint(
-    request: Request,
-    user_data: schemas.UserCreate,
-    db: Session = Depends(get_db)
-):
-    """Sync Auth0 user data with local database"""
-    try:
-        # Verify the token first
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing authorization header"
-            )
-        if not auth_header.startswith('Bearer '):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authorization header format. Must start with 'Bearer '"
-            )
-        
-        token = auth_header.split(' ')[1]
-        payload = await verify_token(token)
-        
-        # Ensure the Auth0 ID matches
-        if payload['sub'] != user_data.auth0_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Token subject does not match provided Auth0 ID"
-            )
-        
-        return crud.sync_auth0_user(db, user_data)
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error syncing user: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error syncing user: {str(e)}"
-        )
-
-@api_router.get("/auth/verify", response_model=dict)
-async def verify_auth(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """Verify Auth0 token and return user data"""
-    try:
-        auth_header = request.headers.get('Authorization')
-        
-        if not auth_header:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing authorization header"
-            )
-        if not auth_header.startswith('Bearer '):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authorization header format. Must start with 'Bearer '"
-            )
-        
-        token = auth_header.split(' ')[1]
-        payload = await verify_token(token)
-        
-        # Get user from database
-        user = crud.get_user_by_auth0_id(db, payload['sub'])
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
-        return {
-            "valid": True,
-            "user": user
-        }
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        logger.error(f"Error verifying user: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error verifying user: {str(e)}"
-        )
-
 @api_router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -279,7 +76,7 @@ async def websocket_endpoint(
         channel_ids = [channel.id for channel in channels]
         
         # Attempt to connect
-        if not await manager.connect(websocket, user.id, channel_ids):
+        if not await manager.connect(websocket, user.id, channel_ids, MAX_CONNECTIONS_PER_USER, MAX_TOTAL_CONNECTIONS):
             return
         
         try:
@@ -1122,6 +919,7 @@ async def join_channel_endpoint(
 
 # Include the router with the prefix
 app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))
+app.include_router(file_uploads_router, prefix=os.getenv('ROOT_PATH', ''), tags=["files"])
 
 if __name__ == "__main__":
     import uvicorn

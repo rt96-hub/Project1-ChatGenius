@@ -1,7 +1,7 @@
 # Backend Documentation
 
 ## Overview
-This is a FastAPI-based backend for a Slack-like communication platform. The system supports real-time messaging, channel management, user authentication through Auth0, and message reactions. The application uses PostgreSQL for data persistence and WebSocket connections for real-time communication.
+This is a FastAPI-based backend for a Slack-like communication platform. The system supports real-time messaging, channel management, user authentication through Auth0, message reactions, and file storage with AWS S3. The application uses PostgreSQL for data persistence and WebSocket connections for real-time communication.
 
 ## Directory Structure
 ```
@@ -17,6 +17,8 @@ backend/
 ├── crud.py             # Database operations
 ├── main.py             # FastAPI application and endpoints
 ├── auth0.py            # Auth0 authentication
+├── file_uploads.py     # File upload handling and S3 integration
+├── websocket_manager.py # WebSocket connection management
 ├── api_docs.md         # API documentation
 ├── backend_docs.md     # Backend documentation
 ├── requirements.txt    # Primary Python dependencies
@@ -196,6 +198,50 @@ backend/
 - Database models
 - Pydantic schemas
 
+### 6. `file_uploads.py`
+**Purpose**: Handles file upload operations and AWS S3 integration
+
+**Key Features**:
+- File upload validation and processing
+- AWS S3 integration for file storage
+- File download URL generation
+- File deletion handling
+
+**Key Components**:
+- S3 client configuration
+- File type validation
+- Unique S3 key generation
+- File size limits enforcement
+- WebSocket event broadcasting for file operations
+
+**Dependencies**:
+- boto3: AWS SDK for Python
+- python-magic: File type detection
+- Environment variables for AWS configuration
+
+### 7. `websocket_manager.py`
+**Purpose**: Manages WebSocket connections and real-time event broadcasting
+
+**Key Components**:
+- Connection management for users and channels
+- Connection limits enforcement
+- Event broadcasting to channel members
+- Handling of disconnections and cleanup
+
+**Key Features**:
+- Per-user connection tracking
+- Channel membership management
+- Real-time event broadcasting for:
+  - Messages
+  - Channel updates
+  - Member management
+  - File operations
+  - Reactions
+
+**Dependencies**:
+- FastAPI WebSocket support
+- Pydantic schemas for event data
+
 ## Environment Configuration
 Required environment variables:
 - `DB_URL`: PostgreSQL database URL
@@ -203,6 +249,12 @@ Required environment variables:
 - `AUTH0_API_IDENTIFIER`: Auth0 API identifier
 - `MAX_WEBSOCKET_CONNECTIONS_PER_USER`: Maximum WebSocket connections per user (default: 5)
 - `MAX_TOTAL_WEBSOCKET_CONNECTIONS`: Maximum total WebSocket connections (default: 1000)
+- `AWS_ACCESS_KEY_ID`: AWS access key for S3
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key for S3
+- `AWS_S3_BUCKET_NAME`: S3 bucket name for file storage
+- `AWS_S3_REGION`: AWS region for S3 (default: us-east-1)
+- `MAX_FILE_SIZE_MB`: Maximum file size in MB (default: 50)
+- `ALLOWED_FILE_TYPES`: Comma-separated list of allowed MIME types
 
 ## WebSocket Events
 The application supports real-time events for:
@@ -210,6 +262,10 @@ The application supports real-time events for:
 - Channel updates (create, update, privacy changes)
 - Member management (join, leave, role updates)
 - Reaction management (add, remove)
+- File operations:
+  - File uploads (create)
+  - File deletions
+  - Download URL generation
 
 ## Dependencies
 Key dependencies from requirements.txt:
@@ -221,5 +277,8 @@ Key dependencies from requirements.txt:
 - psycopg2-binary: PostgreSQL adapter
 - websockets: WebSocket support
 - alembic: Database migrations
+- boto3: AWS SDK for Python
+- python-magic: File type detection
+- python-multipart: File upload handling
 
 For detailed API endpoints and request/response formats, please refer to `api_docs.md`. 

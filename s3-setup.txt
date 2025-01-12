@@ -1,0 +1,18 @@
+Go to AWS
+Go to S3
+Create a bucket
+name: whatever
+block public access
+disable versioning
+enable encryption
+
+go to IAM
+go to users
+find your user
+go to security credentials
+create access key
+doesnt matter what use, pick one and check the box that you understand access key BAD IDEA
+name the key with your name and purpose (in case you need to delete it later)
+download the csv, save the id and secret, however you please, you cant get it again (have to make a new one)
+
+you will use the id and secret in your env file to access the bucket in boto3 (python)

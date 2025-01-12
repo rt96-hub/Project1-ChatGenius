@@ -59,6 +59,7 @@ class Message(Base):
     
     # Add relationships for parent/child messages
     parent = relationship("Message", remote_side=[id], backref="reply", uselist=False)
+    files = relationship("FileUpload", back_populates="message")
 
     __table_args__ = (
         sa.UniqueConstraint('parent_id', name='unique_reply_message'),
@@ -108,5 +109,27 @@ class MessageReaction(Base):
 
     __table_args__ = (
         sa.UniqueConstraint('message_id', 'reaction_id', 'user_id', name='unique_message_reaction_user'),
+    )
+
+class FileUpload(Base):
+    __tablename__ = "file_uploads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(Integer, ForeignKey("messages.id", ondelete="CASCADE"))
+    file_name = Column(String(255), nullable=False)
+    s3_key = Column(String(512), nullable=False)
+    content_type = Column(String(100))
+    file_size = Column(Integer)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    is_deleted = Column(Boolean, default=False)
+
+    message = relationship("Message", back_populates="files")
+    user = relationship("User", foreign_keys=[uploaded_by])
+
+    __table_args__ = (
+        sa.Index('idx_file_uploads_message_id', 'message_id'),
+        sa.Index('idx_file_uploads_uploaded_by', 'uploaded_by'),
+        sa.Index('idx_file_uploads_uploaded_at', 'uploaded_at'),
     )
 
