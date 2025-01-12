@@ -8,6 +8,7 @@ from typing import List, Optional
 import magic
 import logging
 from dotenv import load_dotenv
+from botocore.config import Config
 
 import models
 import schemas
@@ -26,7 +27,7 @@ load_dotenv()
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
-AWS_S3_REGION = os.getenv('AWS_S3_REGION', 'us-east-1')
+AWS_S3_REGION = os.getenv('AWS_S3_REGION', 'us-east-2')
 
 # File upload configurations
 MAX_FILE_SIZE_MB = int(os.getenv('MAX_FILE_SIZE_MB', '50'))  # Default 50MB
@@ -35,9 +36,13 @@ ALLOWED_FILE_TYPES = os.getenv('ALLOWED_FILE_TYPES', 'image/*,application/pdf,te
 # Initialize S3 client
 s3_client = boto3.client(
     's3',
+    region_name=AWS_S3_REGION,
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    region_name=AWS_S3_REGION
+    config=Config(
+        s3={'addressing_style': 'virtual'},  # This ensures consistent URL format
+        signature_version='s3v4'
+    )
 )
 
 router = APIRouter()
@@ -165,23 +170,29 @@ async def get_download_url(
         if not crud.user_in_channel(db, current_user.id, message.channel_id):
             raise HTTPException(status_code=403, detail="Not authorized to access this file")
         
-        # Generate presigned URL
+        # Generate presigned URL with explicit configuration
         try:
+            # Create a new S3 client with explicit configuration
+            
             url = s3_client.generate_presigned_url(
-                'get_object',
+                ClientMethod='get_object',
                 Params={
                     'Bucket': AWS_S3_BUCKET_NAME,
                     'Key': file_upload.s3_key,
                     'ResponseContentDisposition': f'attachment; filename="{file_upload.file_name}"'
                 },
-                ExpiresIn=3600  # URL expires in 1 hour
+                ExpiresIn=3600,  # URL expires in 1 hour
             )
+            
+
+            print(f"Generated presigned URL for file {file_id} with key {file_upload.s3_key}")
             return {"download_url": url}
+            
         except Exception as e:
             logger.error(f"Error generating presigned URL: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail="Failed to generate download URL"
+                detail=f"Failed to generate download URL: {str(e)}"
             )
     
     except HTTPException:

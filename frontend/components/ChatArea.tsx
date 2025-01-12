@@ -387,55 +387,95 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
 
     try {
       if (selectedFile) {
-        // Create FormData for file upload
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        if (messageContent) {
-          formData.append('content', messageContent);
+        // First create the message
+        let messageResponse;
+        try {
+          messageResponse = await api.post(
+            `/channels/${channelId}/messages`,
+            { content: messageContent || 'Uploading file...' }
+          );
+        } catch (error) {
+          console.error('Failed to create message:', error);
+          throw error;
         }
 
-        const response = await api.post(
-          `/channels/${channelId}/messages/with-file`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-            onUploadProgress: (progressEvent) => {
-              const progress = Math.round(
-                (progressEvent.loaded * 100) / (progressEvent.total || 100)
-              );
-              setUploadProgress(progress);
-            },
-          }
-        );
+        // Then upload the file with the real message ID
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('message_id', messageResponse.data.id.toString());
 
-        if (response.data) {
+        try {
+          const fileUploadResponse = await api.post(
+            `/files/upload`,
+            formData,
+            {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              onUploadProgress: (progressEvent) => {
+                const progress = Math.round(
+                  (progressEvent.loaded * 100) / (progressEvent.total || 100)
+                );
+                setUploadProgress(progress);
+              },
+            }
+          );
+
+          // Update the message with file reference if needed
+          if (messageContent) {
+            try {
+              await api.put(
+                `/channels/${channelId}/messages/${messageResponse.data.id}`,
+                { content: messageContent }
+              );
+            } catch (updateError) {
+              console.error('Failed to update message content:', updateError);
+            }
+          }
+
           // Broadcast the message via WebSocket
           try {
             await sendMessage({
               type: "new_message",
               channel_id: channelId,
-              message: response.data
+              message: {
+                ...messageResponse.data,
+                content: messageContent || 'File uploaded',
+                files: [fileUploadResponse.data]
+              }
             });
           } catch (wsError) {
             console.error('WebSocket broadcast failed:', wsError);
             // Even if WebSocket fails, we still have the HTTP response
             setMessages(prev => {
-              if (prev.some(m => m.id === response.data.id)) return prev;
-              const newMessages = [...prev, response.data].sort((a, b) => 
+              if (prev.some(m => m.id === messageResponse.data.id)) return prev;
+              const newMessages = [...prev, {
+                ...messageResponse.data,
+                content: messageContent || 'File uploaded',
+                files: [fileUploadResponse.data]
+              }].sort((a, b) => 
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );
               setIsUserSentMessage(true);
               return newMessages;
             });
           }
+        } catch (uploadError) {
+          console.error('Failed to upload file:', uploadError);
+          // Try to delete the message if file upload failed
+          try {
+            await api.delete(`/channels/${channelId}/messages/${messageResponse.data.id}`);
+          } catch (deleteError) {
+            console.error('Failed to delete message after file upload failed:', deleteError);
+          }
+          throw uploadError;
         }
+        
         // Clear file state after successful upload
         setSelectedFile(null);
         setUploadProgress(0);
       } else {
-        // For regular messages, try WebSocket first
+        // For regular messages without files, try WebSocket first
         try {
           await sendMessage({
             type: "new_message",
@@ -452,10 +492,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
           
           if (response.data) {
             setMessages(prev => {
-              // Check if message already exists
-              if (prev.some(m => m.id === response.data.id)) {
-                return prev;
-              }
+              if (prev.some(m => m.id === response.data.id)) return prev;
               const newMessages = [...prev, response.data].sort((a, b) => 
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );

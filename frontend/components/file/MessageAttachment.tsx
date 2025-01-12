@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+import { useApi } from '@/hooks/useApi';
 
 interface MessageAttachmentProps {
   id: number;
@@ -18,6 +19,7 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({
   contentType,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const api = useApi();
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -43,10 +45,10 @@ export const MessageAttachment: React.FC<MessageAttachmentProps> = ({
   const handleDownload = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/files/${id}/download-url`);
-      if (!response.ok) throw new Error('Failed to get download URL');
+      const response = await api.get(`/files/${id}/download-url`);
+      if (!response.data) throw new Error('Failed to get download URL');
       
-      const { download_url } = await response.json();
+      const { download_url } = response.data;
       
       // Create a temporary link and click it to start the download
       const link = document.createElement('a');
