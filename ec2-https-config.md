@@ -48,6 +48,13 @@ server {
     }
 }
 ```
+To add websocket support, you need to add the following to the backend location block:
+```nginx
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection "Upgrade";
+```
+
+
 
 Enable the site and test the configuration:
 ```bash

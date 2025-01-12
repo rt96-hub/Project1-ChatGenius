@@ -346,3 +346,36 @@ const MyComponent = () => {
   );
 };
 ``` 
+
+### Message Reply System
+The application supports threaded conversations through a reply system. When a user replies to a message:
+
+1. **Reply Creation**
+   - Endpoint: `POST /channels/{channel_id}/messages/{parent_id}/reply`
+   - WebSocket event includes `parent_id` and `parent` references
+   - Reply messages are not shown in the main thread
+   - Parent messages show a "Show replies" button when they have replies
+
+2. **Reply Chain Display**
+   - Replies are fetched using `GET /messages/{message_id}/reply-chain`
+   - Replies are displayed in a collapsible thread under the parent message
+   - The UI visually indicates the reply relationship with indentation and borders
+
+3. **Reply State Management**
+   - `replyingTo` state in ChatArea tracks the message being replied to
+   - Visual indicator shows which message is being replied to
+   - Reply state is cleared after sending the reply
+
+4. **WebSocket Events for Replies**
+   ```typescript
+   // New message event with reply
+   {
+     type: "new_message",
+     channel_id: number,
+     message: {
+       content: string,
+       parent_id: number,
+       parent: Message | null
+     }
+   }
+   ``` 

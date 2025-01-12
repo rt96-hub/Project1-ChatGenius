@@ -219,6 +219,75 @@ async def websocket_endpoint(
                     }
                     await manager.broadcast_to_channel(message_data, channel_id)
                 
+                elif event_type == "message_reply":
+                    content = data.get('content')
+                    parent_id = data.get('parent_id')
+                    if not content or not parent_id:
+                        continue
+                    
+                    # Create the reply
+                    reply, root_message = crud.create_reply(
+                        db=db,
+                        parent_id=parent_id,
+                        user_id=user.id,
+                        message=schemas.MessageReplyCreate(content=content)
+                    )
+                    
+                    if not reply or not root_message:
+                        continue
+                    
+                    # Broadcast the new reply message
+                    message_data = {
+                        "type": "message_created",
+                        "channel_id": channel_id,
+                        "message": {
+                            "id": reply.id,
+                            "content": reply.content,
+                            "created_at": reply.created_at.isoformat(),
+                            "updated_at": reply.updated_at.isoformat(),
+                            "user_id": reply.user_id,
+                            "channel_id": reply.channel_id,
+                            "parent_id": reply.parent_id,
+                            "parent": {
+                                "id": root_message.id,
+                                "content": root_message.content,
+                                "created_at": root_message.created_at.isoformat(),
+                                "user_id": root_message.user_id,
+                                "channel_id": root_message.channel_id
+                            },
+                            "user": {
+                                "id": user.id,
+                                "email": user.email,
+                                "name": user.name,
+                                "picture": user.picture
+                            }
+                        }
+                    }
+                    await manager.broadcast_to_channel(message_data, channel_id)
+                    
+                    # Also broadcast an update to the root message to show it has replies
+                    root_message_data = {
+                        "type": "message_update",
+                        "channel_id": channel_id,
+                        "message": {
+                            "id": root_message.id,
+                            "content": root_message.content,
+                            "created_at": root_message.created_at.isoformat(),
+                            "updated_at": root_message.updated_at.isoformat(),
+                            "user_id": root_message.user_id,
+                            "channel_id": root_message.channel_id,
+                            "parent_id": root_message.parent_id,
+                            "has_replies": True,
+                            "user": {
+                                "id": root_message.user.id,
+                                "email": root_message.user.email,
+                                "name": root_message.user.name,
+                                "picture": root_message.user.picture
+                            }
+                        }
+                    }
+                    await manager.broadcast_to_channel(root_message_data, channel_id)
+                
                 elif event_type == "add_reaction":
                     message_id = data.get('message_id')
                     reaction_id = data.get('reaction_id')

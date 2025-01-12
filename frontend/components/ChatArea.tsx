@@ -390,8 +390,13 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
         // First create the message
         let messageResponse;
         try {
+          // Use the reply endpoint if replying to a message
+          const endpoint = replyingTo 
+            ? `/channels/${channelId}/messages/${replyingTo.id}/reply`
+            : `/channels/${channelId}/messages`;
+          
           messageResponse = await api.post(
-            `/channels/${channelId}/messages`,
+            endpoint,
             { content: messageContent || 'Uploading file...' }
           );
         } catch (error) {
@@ -436,28 +441,50 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
           // Broadcast the message via WebSocket
           try {
             await sendMessage({
-              type: "new_message",
+              type: replyingTo ? "message_reply" : "new_message",
               channel_id: channelId,
-              message: {
-                ...messageResponse.data,
-                content: messageContent || 'File uploaded',
-                files: [fileUploadResponse.data]
-              }
+              content: messageContent || 'File uploaded',
+              ...(replyingTo ? {
+                parent_id: replyingTo.id,
+                parent: replyingTo
+              } : {}),
+              files: [fileUploadResponse.data]
             });
           } catch (wsError) {
             console.error('WebSocket broadcast failed:', wsError);
             // Even if WebSocket fails, we still have the HTTP response
             setMessages(prev => {
               if (prev.some(m => m.id === messageResponse.data.id)) return prev;
-              const newMessages = [...prev, {
+              
+              // If this is a reply, update the parent message's has_replies flag
+              let updatedMessages = [...prev];
+              if (replyingTo) {
+                updatedMessages = updatedMessages.map(msg => {
+                  if (msg.id === replyingTo.id) {
+                    return { ...msg, has_replies: true };
+                  }
+                  return msg;
+                });
+              }
+
+              const newMessage = {
                 ...messageResponse.data,
                 content: messageContent || 'File uploaded',
-                files: [fileUploadResponse.data]
-              }].sort((a, b) => 
+                files: [fileUploadResponse.data],
+                parent_id: replyingTo?.id || null,
+                parent: replyingTo || null
+              };
+
+              // Only add to messages array if it's not a reply
+              if (!replyingTo) {
+                updatedMessages.push(newMessage);
+              }
+
+              const sortedMessages = updatedMessages.sort((a, b) => 
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );
               setIsUserSentMessage(true);
-              return newMessages;
+              return sortedMessages;
             });
           }
         } catch (uploadError) {
@@ -477,31 +504,67 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       } else {
         // For regular messages without files, try WebSocket first
         try {
-          await sendMessage({
-            type: "new_message",
+          const messageData = {
+            type: replyingTo ? "message_reply" : "new_message",
             channel_id: channelId,
-            content: messageContent
-          });
+            content: messageContent,
+            ...(replyingTo ? {
+              parent_id: replyingTo.id,
+              parent: replyingTo
+            } : {})
+          };
+
+          await sendMessage(messageData);
         } catch (wsError) {
           console.error('WebSocket send failed:', wsError);
           // If WebSocket fails, fallback to HTTP
+          const endpoint = replyingTo 
+            ? `/channels/${channelId}/messages/${replyingTo.id}/reply`
+            : `/channels/${channelId}/messages`;
+            
           const response = await api.post(
-            `/channels/${channelId}/messages`,
+            endpoint,
             { content: messageContent }
           );
           
           if (response.data) {
             setMessages(prev => {
               if (prev.some(m => m.id === response.data.id)) return prev;
-              const newMessages = [...prev, response.data].sort((a, b) => 
+
+              // If this is a reply, update the parent message's has_replies flag
+              let updatedMessages = [...prev];
+              if (replyingTo) {
+                updatedMessages = updatedMessages.map(msg => {
+                  if (msg.id === replyingTo.id) {
+                    return { ...msg, has_replies: true };
+                  }
+                  return msg;
+                });
+              }
+
+              const newMessage = {
+                ...response.data,
+                parent_id: replyingTo?.id || null,
+                parent: replyingTo || null
+              };
+
+              // Only add to messages array if it's not a reply
+              if (!replyingTo) {
+                updatedMessages.push(newMessage);
+              }
+
+              const sortedMessages = updatedMessages.sort((a, b) => 
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );
               setIsUserSentMessage(true);
-              return newMessages;
+              return sortedMessages;
             });
           }
         }
       }
+
+      // Clear reply state after sending
+      setReplyingTo(null);
     } catch (error) {
       console.error('Failed to send message:', error);
       setUploadError('Failed to upload file. Please try again.');
