@@ -3,9 +3,9 @@ import {
     HashtagIcon, 
     PlusIcon, 
     LockClosedIcon,
-    KeyIcon,
     ChatBubbleLeftRightIcon,
-    ListBulletIcon
+    ListBulletIcon,
+    MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,7 +14,7 @@ import ViewDMsModal from './ViewDMsModal';
 import NewDMModal from './NewDMModal';
 import { useConnection } from '@/contexts/ConnectionContext';
 import type { Channel } from '../types/channel';
-import ConfirmDialog from './ConfirmDialog';
+import ChannelListPopout from './ChannelListPopout';
 
 interface SidebarProps {
     onChannelSelect: (channelId: number) => void;
@@ -30,10 +30,9 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
     const [isViewDMsModalOpen, setIsViewDMsModalOpen] = useState(false);
     const [isNewDMModalOpen, setIsNewDMModalOpen] = useState(false);
     const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
-    const [showJoinDialog, setShowJoinDialog] = useState(false);
-    const [joinCode, setJoinCode] = useState('');
     const { addMessageListener } = useConnection();
     const currentUserId = user?.id;
+    const [isChannelListOpen, setIsChannelListOpen] = useState(false);
 
     const fetchChannels = useCallback(async () => {
         try {
@@ -102,21 +101,6 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         handleChannelSelect(channelId);
     };
 
-    const handleJoinChannel = async () => {
-        if (!joinCode.trim()) return;
-
-        try {
-            const response = await api.post('/channels/join', { code: joinCode });
-            await fetchChannels();
-            handleChannelSelect(response.data.id);
-            setJoinCode('');
-            setShowJoinDialog(false);
-        } catch (error) {
-            console.error('Failed to join channel:', error);
-            // You might want to show an error message to the user here
-        }
-    };
-
     const getRoleBadge = (role?: string) => {
         if (!role || role === 'member') return null;
         
@@ -132,6 +116,11 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         handleChannelSelect(channelId);
     };
 
+    const handleChannelJoined = async (channelId: number) => {
+        await fetchChannels();
+        handleChannelSelect(channelId);
+    };
+
     return (
         <aside className="w-64 flex-none bg-gray-800 text-white flex flex-col h-full overflow-hidden">
             <div className="p-4 border-b border-gray-700 flex-none">
@@ -144,11 +133,11 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
                         <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wide">Channels</h3>
                         <div className="flex gap-1">
                             <button
-                                onClick={() => setShowJoinDialog(true)}
+                                onClick={() => setIsChannelListOpen(true)}
                                 className="text-gray-400 hover:text-white transition-colors"
-                                title="Join Channel"
+                                title="Browse Channels"
                             >
-                                <KeyIcon className="h-5 w-5" />
+                                <MagnifyingGlassIcon className="h-5 w-5" />
                             </button>
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
@@ -230,28 +219,10 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
                 onChannelCreated={handleChannelCreated}
             />
 
-            <ConfirmDialog
-                isOpen={showJoinDialog}
-                onClose={() => {
-                    setShowJoinDialog(false);
-                    setJoinCode('');
-                }}
-                onConfirm={handleJoinChannel}
-                title="Join Channel"
-                message={
-                    <div className="space-y-4">
-                        <p>Enter the invite code to join a private channel.</p>
-                        <input
-                            type="text"
-                            value={joinCode}
-                            onChange={(e) => setJoinCode(e.target.value)}
-                            placeholder="Enter invite code"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                    </div>
-                }
-                confirmText="Join"
-                type="warning"
+            <ChannelListPopout
+                isOpen={isChannelListOpen}
+                onClose={() => setIsChannelListOpen(false)}
+                onChannelJoin={handleChannelJoined}
             />
 
             <ViewDMsModal

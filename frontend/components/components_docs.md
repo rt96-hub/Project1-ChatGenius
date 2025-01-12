@@ -396,7 +396,7 @@ interface ConfirmDialogProps {
 **Key Features**:
 - Displays list of channels
 - Displays list of direct messages (limited to 5)
-- Channel creation and joining functionality
+- Channel creation functionality
 - Visual indicators for private channels and selected channel
 - Role badges for moderators and owners
 - Real-time updates through WebSocket connection
@@ -418,22 +418,12 @@ interface SidebarProps {
   ```typescript
   // Response: Array of DM Channel objects
   ```
-- POST `/channels/join`
-  ```typescript
-  // Request Body
-  {
-    code: string;
-  }
-  // Response: Channel object
-  ```
 
 **State Management**:
 - `channels`: Regular channels list
 - `dmChannels`: Direct message channels list (limited to 5)
 - `selectedChannelId`: Currently selected channel
 - `isCreateModalOpen`: Controls channel creation modal
-- `showJoinDialog`: Controls channel join dialog
-- `joinCode`: Stores the join code for private channels
 
 **WebSocket Events**:
 - Listens for `channel_update` events
@@ -443,8 +433,6 @@ interface SidebarProps {
 - `useApi`: For making authenticated API requests
 - `useAuth`: For accessing current user information
 - `useConnection`: For WebSocket connection management
-- `CreateChannelModal`: For channel creation
-- `ConfirmDialog`: For join code input
 
 ### ViewDMsModal.tsx
 **Purpose**: Modal component for viewing all direct message channels.

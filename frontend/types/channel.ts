@@ -15,7 +15,6 @@ export interface Channel {
     created_at: string;
     is_private: boolean;
     is_dm: boolean;
-    join_code: string | null;
     users: ChannelMember[];
     messages: Message[];
     member_count: number;

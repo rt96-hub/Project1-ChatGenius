@@ -16,7 +16,6 @@ interface ChannelHeaderProps {
     onChannelDelete?: () => void;
     onUpdateMemberRole: (userId: number, role: ChannelRole) => void;
     onRemoveMember: (userId: number) => void;
-    onGenerateInvite: () => void;
     onToggleMembers: () => void;
     showMembers: boolean;
 }
@@ -28,7 +27,6 @@ export default function ChannelHeader({
     onChannelDelete,
     onUpdateMemberRole,
     onRemoveMember,
-    onGenerateInvite,
     onToggleMembers,
     showMembers
 }: ChannelHeaderProps) {
@@ -83,7 +81,6 @@ export default function ChannelHeader({
                 onUpdateChannel={onChannelUpdate}
                 onUpdateMemberRole={onUpdateMemberRole}
                 onRemoveMember={onRemoveMember}
-                onGenerateInvite={onGenerateInvite}
                 onDeleteChannel={onChannelDelete || (() => {})}
             />
         </>

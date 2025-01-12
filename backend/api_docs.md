@@ -275,8 +275,7 @@ Creates a new channel.
 {
     "name": "general",
     "description": "General discussion channel",
-    "is_private": false,
-    "join_code": null
+    "is_private": false
 }
 ```
 
@@ -289,7 +288,6 @@ Creates a new channel.
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
     "is_private": false,
-    "join_code": null,
     "users": [
         {
             "id": 1,
@@ -323,7 +321,6 @@ Returns all channels the current user is a member of.
         "owner_id": 1,
         "created_at": "2024-01-07T12:00:00Z",
         "is_private": false,
-        "join_code": null,
         "users": [
             {
                 "id": 1,
@@ -353,7 +350,6 @@ Returns information about a specific channel.
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
     "is_private": false,
-    "join_code": null,
     "users": [
         {
             "id": 1,
@@ -378,8 +374,7 @@ Updates a channel's information. Only the channel owner can perform this action.
 {
     "name": "updated-general",
     "description": "Updated general discussion channel",
-    "is_private": false,
-    "join_code": null
+    "is_private": false
 }
 ```
 
@@ -392,7 +387,6 @@ Updates a channel's information. Only the channel owner can perform this action.
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
     "is_private": false,
-    "join_code": null,
     "users": [
         {
             "id": 1,
@@ -414,6 +408,82 @@ Deletes a channel. Only the channel owner can perform this action.
 
 **Response (200 OK):**
 Returns the deleted channel object.
+
+### 2. Get Available Channels
+```http
+GET /channels/available
+```
+
+Get all public channels that the current user can join.
+
+**Query Parameters:**
+- `skip` (optional): Number of channels to skip (default: 0)
+- `limit` (optional): Maximum number of channels to return (default: 50)
+
+**Response (200 OK):**
+```json
+[
+    {
+        "id": 1,
+        "name": "General",
+        "description": "General discussion channel",
+        "created_at": "2024-01-07T12:00:00Z",
+        "owner_id": 1,
+        "is_private": false,
+        "is_dm": false,
+        "users": [
+            {
+                "id": 1,
+                "email": "user1@example.com",
+                "name": "User One",
+                "picture": "https://example.com/picture1.jpg"
+            }
+        ]
+    }
+]
+```
+
+### 3. Join Channel
+```http
+POST /channels/{channel_id}/join
+```
+
+Join a public channel.
+
+**Path Parameters:**
+- `channel_id`: ID of the channel to join
+
+**Response (200 OK):**
+```json
+{
+    "id": 1,
+    "name": "General",
+    "description": "General discussion channel",
+    "created_at": "2024-01-07T12:00:00Z",
+    "owner_id": 1,
+    "is_private": false,
+    "is_dm": false,
+    "users": [
+        {
+            "id": 1,
+            "email": "user1@example.com",
+            "name": "User One",
+            "picture": "https://example.com/picture1.jpg"
+        },
+        {
+            "id": 2,
+            "email": "user2@example.com",
+            "name": "User Two",
+            "picture": "https://example.com/picture2.jpg"
+        }
+    ]
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Channel does not exist
+- `403 Forbidden`: Cannot join private or DM channels directly
+- `400 Bad Request`: Failed to join channel (e.g., already a member)
 
 ## Message Management
 
@@ -624,8 +694,7 @@ Updates a channel's privacy settings. Only the channel owner can perform this ac
 **Request Body:**
 ```json
 {
-    "is_private": true,
-    "join_code": "optional_join_code"
+    "is_private": true
 }
 ```
 
@@ -636,7 +705,6 @@ Updates a channel's privacy settings. Only the channel owner can perform this ac
     "name": "channel-name",
     "description": "Channel description",
     "is_private": true,
-    "join_code": "abc123xyz",
     "owner_id": 1,
     "created_at": "2024-01-07T12:00:00Z",
     "users": [
@@ -648,21 +716,6 @@ Updates a channel's privacy settings. Only the channel owner can perform this ac
         }
     ],
     "messages": []
-}
-```
-
-### 4. Create Channel Invite
-```http
-POST /channels/{channel_id}/invite
-```
-
-Creates an invite code for the channel. Any channel member can create an invite.
-
-**Response (200 OK):**
-```json
-{
-    "join_code": "abc123xyz",
-    "channel_id": 1
 }
 ```
 
@@ -857,7 +910,6 @@ Establishes a WebSocket connection for real-time updates.
         "created_at": "2024-01-07T12:00:00Z",
         "is_private": true,
         "is_dm": true,
-        "join_code": null,
         "users": [
             {
                 "id": 1,
@@ -1510,6 +1562,6 @@ The token is verified using the same Auth0 verification process as REST endpoint
 
 ### Channel Privacy
 - Channels can be public or private
-- Private channels require join codes
+- Private channels are invite-only
 - DM channels are always private
 - Channel privacy changes are broadcast via WebSocket 

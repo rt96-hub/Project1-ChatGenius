@@ -3,7 +3,6 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
 import type { Channel, ChannelRole } from '../types/channel';
 import MembersList from './MembersList';
-import ChannelInvite from './ChannelInvite';
 import ConfirmDialog from './ConfirmDialog';
 
 interface ChannelSettingsModalProps {
@@ -14,7 +13,6 @@ interface ChannelSettingsModalProps {
     onUpdateChannel: (updates: Partial<Channel>) => void;
     onUpdateMemberRole: (userId: number, role: ChannelRole) => void;
     onRemoveMember: (userId: number) => void;
-    onGenerateInvite: () => void;
     onDeleteChannel: () => void;
 }
 
@@ -30,7 +28,6 @@ export default function ChannelSettingsModal({
     onUpdateChannel,
     onUpdateMemberRole,
     onRemoveMember,
-    onGenerateInvite,
     onDeleteChannel
 }: ChannelSettingsModalProps) {
     const api = useApi();
@@ -211,14 +208,6 @@ export default function ChannelSettingsModal({
                                 When enabled, the channel cannot be found by non members in search and users can only join through invites.
                             </p>
                         </div>
-
-                        {channel.is_private && (
-                            <ChannelInvite
-                                channelId={channel.id}
-                                joinCode={channel.join_code || null}
-                                onGenerateInvite={onGenerateInvite}
-                            />
-                        )}
                     </div>
                 );
             case 'members':

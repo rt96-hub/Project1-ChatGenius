@@ -81,7 +81,6 @@ class ChannelBase(BaseModel):
     description: Optional[str] = None
     is_private: Optional[bool] = False
     is_dm: Optional[bool] = False
-    join_code: Optional[str] = None
 
 class ChannelCreate(ChannelBase):
     pass
@@ -153,17 +152,12 @@ class ChannelRole(ChannelRoleBase):
     class Config:
         orm_mode = True
 
-class ChannelInvite(BaseModel):
-    join_code: str
-    channel_id: int
-
 class ChannelMemberUpdate(BaseModel):
     user_id: int
     role: Optional[str] = None
 
 class ChannelPrivacyUpdate(BaseModel):
     is_private: bool
-    join_code: Optional[str] = None
 
 class UserWithLastDM(BaseModel):
     user: User

@@ -3,7 +3,7 @@ import models, schemas
 from sqlalchemy.orm import joinedload
 import logging
 from sqlalchemy import func
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -226,26 +226,9 @@ def update_channel_privacy(db: Session, channel_id: int, privacy_update: schemas
     db_channel = get_channel(db, channel_id)
     if db_channel:
         db_channel.is_private = privacy_update.is_private
-        db_channel.join_code = privacy_update.join_code
         db.commit()
         db.refresh(db_channel)
     return db_channel
-
-def create_channel_invite(db: Session, channel_id: int) -> str:
-    import secrets
-    import string
-
-    # Generate a random join code
-    alphabet = string.ascii_letters + string.digits
-    join_code = ''.join(secrets.choice(alphabet) for _ in range(10))
-
-    db_channel = get_channel(db, channel_id)
-    if db_channel:
-        db_channel.join_code = join_code
-        db.commit()
-        db.refresh(db_channel)
-        return join_code
-    return None
 
 def get_user_channel_role(db: Session, channel_id: int, user_id: int):
     return (db.query(models.ChannelRole)
@@ -609,6 +592,42 @@ def get_message_reply_chain(db: Session, message_id: int) -> List[models.Message
             .options(joinedload(models.Message.user))
             .order_by(models.Message.created_at)
             .all())
+
+def get_available_channels(db: Session, user_id: int, skip: int = 0, limit: int = 50):
+    """Get all public channels that the user is not a member of."""
+    # Get all channels that are:
+    # 1. Not private
+    # 2. Not DMs
+    # 3. User is not a member of
+    return (db.query(models.Channel)
+            .filter(models.Channel.is_private == False)
+            .filter(models.Channel.is_dm == False)
+            .filter(~models.Channel.users.any(models.User.id == user_id))
+            .options(joinedload(models.Channel.users))
+            .order_by(models.Channel.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all())
+
+def join_channel(db: Session, channel_id: int, user_id: int) -> Optional[models.Channel]:
+    """Add a user to a channel."""
+    # Get the channel
+    channel = get_channel(db, channel_id=channel_id)
+    if not channel:
+        return None
+    
+    # Check if user is already a member
+    if any(user.id == user_id for user in channel.users):
+        return channel
+    
+    # Add user to channel
+    db_user_channel = models.UserChannel(user_id=user_id, channel_id=channel_id)
+    db.add(db_user_channel)
+    db.commit()
+    
+    # Refresh the channel to get updated users list
+    db.refresh(channel)
+    return channel
 
 # TODO: Add more CRUD operations for channels, messages, etc.
 

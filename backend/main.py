@@ -156,7 +156,6 @@ class ConnectionManager:
                 "created_at": channel.created_at.isoformat(),
                 "is_private": channel.is_private,
                 "is_dm": channel.is_dm,
-                "join_code": channel.join_code,
                 "users": [
                     {
                         "id": user.id,
@@ -520,6 +519,16 @@ def read_user_channels(
     channels = crud.get_user_channels(db, user_id=current_user.id, skip=skip, limit=limit)
     return channels
 
+@api_router.get("/channels/available", response_model=List[schemas.Channel])
+def get_available_channels_endpoint(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get all public channels that the user can join."""
+    return crud.get_available_channels(db, user_id=current_user.id, skip=skip, limit=limit)
+
 @api_router.get("/channels/{channel_id}", response_model=schemas.Channel)
 def read_channel(
     channel_id: int,
@@ -741,23 +750,6 @@ async def update_channel_privacy_endpoint(
     updated_channel = crud.update_channel_privacy(db, channel_id=channel_id, privacy_update=privacy_update)
     await manager.broadcast_privacy_updated(channel_id, privacy_update.is_private)
     return updated_channel
-
-@api_router.post("/channels/{channel_id}/invite", response_model=schemas.ChannelInvite)
-def create_channel_invite_endpoint(
-    channel_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    db_channel = crud.get_channel(db, channel_id=channel_id)
-    if db_channel is None:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    if current_user.id not in [user.id for user in db_channel.users]:
-        raise HTTPException(status_code=403, detail="Not a member of this channel")
-    
-    join_code = crud.create_channel_invite(db, channel_id=channel_id)
-    if join_code:
-        return schemas.ChannelInvite(join_code=join_code, channel_id=channel_id)
-    raise HTTPException(status_code=500, detail="Failed to create invite")
 
 @api_router.get("/channels/{channel_id}/role", response_model=schemas.ChannelRole)
 def get_channel_role_endpoint(
@@ -1098,6 +1090,35 @@ async def get_message_reply_chain_endpoint(
     reply_chain = crud.get_message_reply_chain(db, message_id=message_id)
     
     return reply_chain
+
+@api_router.post("/channels/{channel_id}/join", response_model=schemas.Channel)
+async def join_channel_endpoint(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Join a channel."""
+    # Get the channel first to check if it exists and is joinable
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if db_channel.is_private:
+        raise HTTPException(status_code=403, detail="Cannot join private channels directly")
+    if db_channel.is_dm:
+        raise HTTPException(status_code=403, detail="Cannot join DM channels directly")
+    
+    # Try to join the channel
+    updated_channel = crud.join_channel(db, channel_id=channel_id, user_id=current_user.id)
+    if not updated_channel:
+        raise HTTPException(status_code=400, detail="Failed to join channel")
+    
+    # Add the channel to the user's WebSocket connection
+    manager.add_channel_for_user(current_user.id, channel_id)
+    
+    # Broadcast member joined event
+    await manager.broadcast_member_joined(channel_id, current_user)
+    
+    return updated_channel
 
 # Include the router with the prefix
 app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))

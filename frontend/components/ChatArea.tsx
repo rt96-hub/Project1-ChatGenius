@@ -459,18 +459,6 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     }
   };
 
-  const handleGenerateInvite = async () => {
-    if (!channel) return;
-    try {
-      await api.post(`/channels/${channel.id}/invite`);
-      if (onChannelUpdate) {
-        onChannelUpdate();
-      }
-    } catch (error) {
-      console.error('Failed to generate invite:', error);
-    }
-  };
-
   const handleLeaveChannel = async () => {
     if (!channel) return;
     try {
@@ -503,7 +491,6 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               onChannelDelete={onChannelDelete}
               onUpdateMemberRole={handleUpdateMemberRole}
               onRemoveMember={handleRemoveMember}
-              onGenerateInvite={handleGenerateInvite}
               onToggleMembers={() => setShowMembers(!showMembers)}
               showMembers={showMembers}
             />

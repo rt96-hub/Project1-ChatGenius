@@ -29,7 +29,6 @@ class Channel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     is_private = Column(Boolean, default=False)
     is_dm = Column(Boolean, default=False)
-    join_code = Column(String, nullable=True)
 
     messages = relationship("Message", back_populates="channel")
     users = relationship("User", secondary="user_channels", back_populates="channels")
