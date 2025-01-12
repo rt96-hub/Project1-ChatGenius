@@ -26,11 +26,6 @@ logger = logging.getLogger(__name__)
 # Initialize Faker
 fake = Faker()
 
-def generate_join_code(length: int = 8) -> str:
-    """Generate a random join code for private channels."""
-    characters = string.ascii_letters + string.digits
-    return ''.join(random.choice(characters) for _ in range(length))
-
 def create_fake_users(db: Session, count: int = 50) -> List[User]:
     """
     Create fake users with realistic data.
@@ -109,8 +104,7 @@ def create_fake_channels(db: Session, users: List[User], count: int = 10) -> Lis
                 owner_id=owner.id,
                 created_at=fake.date_time_this_year(tzinfo=None),
                 is_private=is_private,
-                is_dm=is_dm,
-                join_code=generate_join_code() if is_private and not is_dm else None
+                is_dm=is_dm
             )
             
             db.add(channel)
