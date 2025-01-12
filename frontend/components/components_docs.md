@@ -42,6 +42,9 @@ app/page.tsx
 - Reaction management
 - Member list integration
 - Direct Message navigation support
+- File upload functionality with progress tracking
+- File preview before sending
+- Support for messages with attachments
 
 **Props**:
 ```typescript
@@ -49,9 +52,18 @@ interface ChatAreaProps {
   channelId: number | null;
   onChannelUpdate?: () => void;
   onChannelDelete?: () => void;
-  onNavigateToDM?: (channelId: number) => void;  // For handling DM navigation
+  onNavigateToDM?: (channelId: number) => void;
 }
 ```
+
+**File Upload Features**:
+- File selection through FileUploadButton
+- File preview before upload
+- Upload progress tracking
+- Error handling with retry option
+- Support for multiple file types
+- Size limit validation
+- MIME type validation
 
 **WebSocket Events**:
 - `new_message`: Received when a new message is sent
@@ -100,6 +112,15 @@ interface ChatAreaProps {
   }
   // Response: Message object
   ```
+- POST `/channels/{channelId}/messages/with-file`
+  ```typescript
+  // Request: multipart/form-data
+  {
+    file: File;
+    content?: string;  // Optional message text
+  }
+  // Response: Message object with file metadata
+  ```
 
 ### ChatMessage.tsx
 **Purpose**: Individual message component handling display and message actions.
@@ -112,6 +133,9 @@ interface ChatAreaProps {
 - Emoji reactions with counter
 - Reaction management (add/remove)
 - Direct Message initiation through user profile
+- File attachment display with download option
+- File type icons based on MIME type
+- File size formatting
 
 **Props**:
 ```typescript
@@ -121,9 +145,41 @@ interface ChatMessageProps {
   channelId: number;
   onMessageUpdate: (updatedMessage: Message) => void;
   onMessageDelete: (messageId: number) => void;
-  onNavigateToDM?: (channelId: number) => void;  // For handling DM navigation
+  onNavigateToDM?: (channelId: number) => void;
+  onReply?: (parentMessage: Message) => void;
 }
 ```
+
+**Message Interface Updates**:
+```typescript
+interface Message {
+  id: number;
+  content: string;
+  created_at: string;
+  updated_at?: string;
+  user_id: number;
+  channel_id: number;
+  user?: User;
+  reactions?: Reaction[];
+  files?: Array<{
+    id: number;
+    message_id: number;
+    file_name: string;
+    content_type: string;
+    file_size: number;
+    uploaded_at: string;
+    uploaded_by: number;
+  }>;
+}
+```
+
+**File Display Features**:
+- File type icons for different MIME types
+- File name and size display
+- Download functionality
+- Loading state during download
+- Error handling with toast notifications
+- Dark mode support
 
 **API Endpoints**:
 - PUT `/channels/{channelId}/messages/{messageId}`
@@ -531,6 +587,15 @@ interface Message {
   channel_id: number;
   user?: User;
   reactions?: Reaction[];
+  files?: Array<{
+    id: number;
+    message_id: number;
+    file_name: string;
+    content_type: string;
+    file_size: number;
+    uploaded_at: string;
+    uploaded_by: number;
+  }>;
 }
 ```
 
@@ -735,4 +800,68 @@ All components use shared type definitions from `@/types/*`:
 **Used by:** `Header`
 **Dependencies:**
 - `useAuth`
-- `useConnection` 
+- `useConnection`
+
+## File Components
+
+### FileUploadButton
+A button component that handles file selection and initial validation.
+
+**Props:**
+- `onFileSelect: (file: File) => void` - Callback when a file is selected
+- `disabled?: boolean` - Whether the button is disabled
+- `maxSizeMB?: number` - Maximum file size in MB (default: 50)
+- `allowedTypes?: string[]` - Array of allowed MIME types (default: ['image/*', 'application/pdf', 'text/*'])
+
+**Features:**
+- File type validation
+- File size validation
+- Tooltip on hover
+- Accessible button and input
+- Dark mode support
+
+### FilePreview
+A component that displays file information before upload.
+
+**Props:**
+- `file: File` - The file to preview
+- `onRemove: () => void` - Callback to remove the file
+
+**Features:**
+- File name display with truncation
+- File size formatting
+- Remove button
+- Dark mode support
+
+### FileUploadProgress
+A progress bar component for file uploads.
+
+**Props:**
+- `fileName: string` - Name of the file being uploaded
+- `progress: number` - Upload progress (0-100)
+- `onCancel: () => void` - Callback to cancel upload
+- `error?: string` - Optional error message
+
+**Features:**
+- Progress bar visualization
+- Cancel button
+- Error state handling
+- Retry option on error
+- Dark mode support
+
+### MessageAttachment
+A component for displaying file attachments in messages.
+
+**Props:**
+- `id: number` - File ID
+- `fileName: string` - Name of the file
+- `fileSize: number` - Size of the file in bytes
+- `contentType: string` - MIME type of the file
+- `messageId: number` - ID of the associated message
+
+**Features:**
+- File type icon based on MIME type
+- File name and size display
+- Download functionality with loading state
+- Error handling with toast notifications
+- Dark mode support 

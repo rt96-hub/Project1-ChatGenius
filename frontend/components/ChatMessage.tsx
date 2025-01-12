@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
 import UserProfilePopout from './UserProfilePopout';
 import EmojiSelector from './EmojiSelector';
+import { MessageAttachment } from './file/MessageAttachment';
 
 interface User {
   id: number;
@@ -41,6 +42,15 @@ interface Message {
   has_replies?: boolean;
   user?: User;
   reactions?: Reaction[];
+  files?: Array<{
+    id: number;
+    message_id: number;
+    file_name: string;
+    content_type: string;
+    file_size: number;
+    uploaded_at: string;
+    uploaded_by: number;
+  }>;
 }
 
 interface ChatMessageProps {
@@ -330,7 +340,22 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
               </div>
             </div>
           ) : (
-            <p className="text-gray-800 break-words">{message.content}</p>
+            <div className="space-y-2">
+              <p className="text-gray-800 break-words">{message.content}</p>
+              {message.files && message.files.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  {message.files.map((file) => (
+                    <MessageAttachment
+                      key={file.id}
+                      id={file.id}
+                      fileName={file.file_name}
+                      fileSize={file.file_size}
+                      contentType={file.content_type}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
         

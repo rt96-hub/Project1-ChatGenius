@@ -6,6 +6,9 @@ import MemberListModal from './MemberListModal';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useApi } from '@/hooks/useApi';
 import type { Channel, ChannelRole } from '../types/channel';
+import { FileUploadButton } from './file/FileUploadButton';
+import { FilePreview } from './file/FilePreview';
+import { FileUploadProgress } from './file/FileUploadProgress';
 
 interface ChatAreaProps {
   channelId: number | null;
@@ -49,6 +52,15 @@ interface Message {
       picture?: string;
     };
   }>;
+  files?: Array<{
+    id: number;
+    message_id: number;
+    file_name: string;
+    content_type: string;
+    file_size: number;
+    uploaded_at: string;
+    uploaded_by: number;
+  }>;
 }
 
 export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, onNavigateToDM }: ChatAreaProps) {
@@ -70,7 +82,9 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   const { sendMessage, addMessageListener } = useConnection();
   const [isUserSentMessage, setIsUserSentMessage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fetchChannelDetails = useCallback(async () => {
     if (!channelId) return;
@@ -347,9 +361,21 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     fetchCurrentUser();
   }, [api]);
 
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+    setUploadProgress(0);
+    setUploadError(null);
+  };
+
+  const handleFileRemove = () => {
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setUploadError(null);
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!channelId || !newMessage.trim()) return;
+    if (!channelId || (!newMessage.trim() && !selectedFile)) return;
 
     const messageContent = newMessage.trim();
     setNewMessage(''); // Clear input immediately for better UX
@@ -360,32 +386,43 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     }
 
     try {
-      // For replies, use HTTP endpoint and then broadcast via WebSocket
-      if (replyingTo) {
-        console.log('Sending reply message to:', replyingTo.id);
+      if (selectedFile) {
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        if (messageContent) {
+          formData.append('content', messageContent);
+        }
+
         const response = await api.post(
-          `/channels/${channelId}/messages/${replyingTo.id}/reply`,
-          { content: messageContent }
+          `/channels/${channelId}/messages/with-file`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+            onUploadProgress: (progressEvent) => {
+              const progress = Math.round(
+                (progressEvent.loaded * 100) / (progressEvent.total || 100)
+              );
+              setUploadProgress(progress);
+            },
+          }
         );
-        
+
         if (response.data) {
-          console.log('Reply message created:', response.data);
-          // Broadcast the reply via WebSocket
+          // Broadcast the message via WebSocket
           try {
             await sendMessage({
               type: "new_message",
               channel_id: channelId,
               message: response.data
             });
-            console.log('Reply broadcast via WebSocket');
           } catch (wsError) {
             console.error('WebSocket broadcast failed:', wsError);
             // Even if WebSocket fails, we still have the HTTP response
             setMessages(prev => {
-              // Check if message already exists
-              if (prev.some(m => m.id === response.data.id)) {
-                return prev;
-              }
+              if (prev.some(m => m.id === response.data.id)) return prev;
               const newMessages = [...prev, response.data].sort((a, b) => 
                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
               );
@@ -394,7 +431,9 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
             });
           }
         }
-        setReplyingTo(null);
+        // Clear file state after successful upload
+        setSelectedFile(null);
+        setUploadProgress(0);
       } else {
         // For regular messages, try WebSocket first
         try {
@@ -428,8 +467,10 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      setNewMessage(messageContent);
-      // You might want to add a toast notification here
+      setUploadError('Failed to upload file. Please try again.');
+      if (!selectedFile) {
+        setNewMessage(messageContent);
+      }
     }
   };
 
@@ -531,14 +572,34 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               </button>
             </div>
           )}
+          {selectedFile && !uploadError && uploadProgress > 0 && uploadProgress < 100 && (
+            <div className="mb-2">
+              <FileUploadProgress
+                fileName={selectedFile.name}
+                progress={uploadProgress}
+                onCancel={handleFileRemove}
+              />
+            </div>
+          )}
+          {selectedFile && (uploadProgress === 0 || uploadProgress === 100) && (
+            <div className="mb-2">
+              <FilePreview
+                file={selectedFile}
+                onRemove={handleFileRemove}
+              />
+            </div>
+          )}
           <form onSubmit={handleSendMessage} className="flex items-end gap-2">
+            <FileUploadButton
+              onFileSelect={handleFileSelect}
+              disabled={!!selectedFile || isLoadingMore}
+            />
             <textarea
               ref={textareaRef}
               value={newMessage}
               onChange={(e) => {
                 setNewMessage(e.target.value);
-                // Auto-adjust height
-                e.target.style.height = '45px';  // Reset first
+                e.target.style.height = '45px';
                 e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
               }}
               onKeyDown={(e) => {
@@ -554,7 +615,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
             <button
               type="submit"
               className="flex-none p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
-              disabled={!newMessage.trim()}
+              disabled={!newMessage.trim() && !selectedFile}
             >
               <PaperAirplaneIcon className="h-5 w-5" />
             </button>

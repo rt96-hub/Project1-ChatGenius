@@ -145,27 +145,27 @@
 ## Frontend Implementation
 
 ### New Components
-- [ ] FileUploadButton Component
+- [x] FileUploadButton Component
   - Paperclip icon button positioned left of message input
   - Hidden file input element
   - Handle file selection and validation
   - Show loading state during upload
   - Display selected filename before sending
 
-- [ ] FilePreview Component
+- [x] FilePreview Component
   - Small preview below message input
   - Show selected file name and size
   - Option to remove file before sending
   - Progress indicator during upload
 
-- [ ] MessageAttachment Component
+- [x] MessageAttachment Component
   - Renders in ChatMessage component
   - Shows file name, size, and type icon
   - Download button/link
   - Loading state for download
   - Error state handling
 
-- [ ] FileUploadProgress Component
+- [x] FileUploadProgress Component
   - Progress bar for large file uploads
   - Cancel upload option
   - Error state with retry option
