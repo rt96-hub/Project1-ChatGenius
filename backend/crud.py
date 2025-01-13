@@ -19,6 +19,47 @@ def get_user_by_auth0_id(db: Session, auth0_id: str):
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
 
+def create_personal_channel(db: Session, user: models.User) -> models.Channel:
+    """
+    Create a personal private channel for a user.
+    
+    Args:
+        db (Session): SQLAlchemy database session
+        user (models.User): The user to create the channel for
+        
+    Returns:
+        models.Channel: The created personal channel
+    """
+    try:
+        # Build channel name in the format "<UserName>-Personal"
+        channel_name = f"{user.name}-Personal"
+
+        # Create channel object
+        personal_channel = models.Channel(
+            name=channel_name,
+            description=f"Personal channel for {user.name}. Search for other public channels in the sidebar",
+            owner_id=user.id,
+            is_private=True,
+            is_dm=False  # treat it as a private channel, not a DM
+        )
+
+        db.add(personal_channel)
+        db.commit()
+        db.refresh(personal_channel)
+
+        # Add user to channel membership
+        user_channel = models.UserChannel(user_id=user.id, channel_id=personal_channel.id)
+        db.add(user_channel)
+        db.commit()
+        db.refresh(personal_channel)
+
+        logger.info(f"Created personal channel for user {user.name}")
+        return personal_channel
+    except Exception as e:
+        logger.error(f"Error creating personal channel: {str(e)}", exc_info=True)
+        db.rollback()
+        raise
+
 def sync_auth0_user(db: Session, user_data: schemas.UserCreate):
     try:
         # Check if user exists
@@ -43,6 +84,10 @@ def sync_auth0_user(db: Session, user_data: schemas.UserCreate):
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+
+        # Create personal channel for new user
+        create_personal_channel(db, db_user)
+        
         return db_user
     except Exception as e:
         logger.error(f"Error in sync_auth0_user: {str(e)}", exc_info=True)
