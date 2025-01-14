@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 import logging
 from typing import List, Optional, Tuple
+from datetime import datetime
 
 from ..models import Message, User, MessageReaction
 from .. import schemas
@@ -52,8 +53,9 @@ def update_message(db: Session, message_id: int, message_update: schemas.Message
     old_content = db_message.content
     
     try:
-        # Update message content
+        # Update message content and set edited_at
         db_message.content = message_update.content
+        db_message.edited_at = datetime.utcnow()  # Set edited_at timestamp
         db.commit()
         db.refresh(db_message)
 
@@ -73,6 +75,7 @@ def update_message(db: Session, message_id: int, message_update: schemas.Message
         logger.error(f"Error updating message embedding: {e}")
         # Rollback content update if embedding update fails
         db_message.content = old_content
+        db_message.edited_at = None  # Reset edited_at on rollback
         db.commit()
         db.refresh(db_message)
         raise

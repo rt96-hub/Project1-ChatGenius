@@ -34,7 +34,7 @@ interface Message {
   id: number;
   content: string;
   created_at: string;
-  updated_at?: string;
+  edited_at?: string;
   user_id: number;
   channel_id: number;
   parent_id: number | null;
@@ -305,9 +305,9 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
             </span>
             <span className="text-xs text-gray-500 flex-none">
               {new Date(message.created_at).toLocaleTimeString()}
-              {message.updated_at && message.updated_at !== message.created_at && (
+              {message.edited_at && message.edited_at !== message.created_at && (
                 <span className="ml-1 italic">
-                  (edited {new Date(message.updated_at).toLocaleTimeString()})
+                  (edited {new Date(message.edited_at).toLocaleTimeString()})
                 </span>
               )}
             </span>

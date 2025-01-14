@@ -100,6 +100,7 @@ class Message(MessageBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    edited_at: Optional[datetime] = None
     user_id: int
     channel_id: int
     parent_id: Optional[int] = None
