@@ -3,7 +3,8 @@ import {
     LockClosedIcon, 
     HashtagIcon,
     UsersIcon,
-    Cog6ToothIcon
+    Cog6ToothIcon,
+    SparklesIcon
 } from '@heroicons/react/24/outline';
 //import { useApi } from '@/hooks/useApi';
 import ChannelSettingsModal from './ChannelSettingsModal';
@@ -18,6 +19,8 @@ interface ChannelHeaderProps {
     onRemoveMember: (userId: number) => void;
     onToggleMembers: () => void;
     showMembers: boolean;
+    onToggleAISidebar: () => void;
+    showAISidebar: boolean;
 }
 
 export default function ChannelHeader({ 
@@ -28,7 +31,9 @@ export default function ChannelHeader({
     onUpdateMemberRole,
     onRemoveMember,
     onToggleMembers,
-    showMembers
+    showMembers,
+    onToggleAISidebar,
+    showAISidebar
 }: ChannelHeaderProps) {
     const [showSettings, setShowSettings] = useState(false);
     const isOwner = channel.owner_id === currentUserId;
@@ -57,6 +62,13 @@ export default function ChannelHeader({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => onToggleAISidebar()}
+                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                            title={showAISidebar ? "Hide AI Assistant" : "Show AI Assistant"}
+                        >
+                            <SparklesIcon className="h-5 w-5" />
+                        </button>
                         {isOwner && (
                             <button
                                 onClick={() => setShowSettings(true)}

@@ -3,6 +3,7 @@ import { PaperAirplaneIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outli
 import ChannelHeader from './ChannelHeader';
 import ChatMessage from './ChatMessage';
 import MemberListModal from './MemberListModal';
+import AISidebar from './AISidebar';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useApi } from '@/hooks/useApi';
 import type { Channel, ChannelRole } from '../types/channel';
@@ -85,6 +86,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showAISidebar, setShowAISidebar] = useState(false);
 
   const fetchChannelDetails = useCallback(async () => {
     if (!channelId) return;
@@ -495,6 +497,8 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               onRemoveMember={handleRemoveMember}
               onToggleMembers={() => setShowMembers(!showMembers)}
               showMembers={showMembers}
+              onToggleAISidebar={() => setShowAISidebar(!showAISidebar)}
+              showAISidebar={showAISidebar}
             />
           </div>
         )}
@@ -585,15 +589,22 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
         </div>
 
         {channel && currentUserId && (
-          <MemberListModal
-            isOpen={showMembers}
-            onClose={() => setShowMembers(false)}
-            channel={channel}
-            currentUserId={currentUserId}
-            onUpdateMemberRole={handleUpdateMemberRole}
-            onRemoveMember={handleRemoveMember}
-            onLeaveChannel={handleLeaveChannel}
-          />
+          <>
+            <MemberListModal
+              isOpen={showMembers}
+              onClose={() => setShowMembers(false)}
+              channel={channel}
+              currentUserId={currentUserId}
+              onUpdateMemberRole={handleUpdateMemberRole}
+              onRemoveMember={handleRemoveMember}
+              onLeaveChannel={handleLeaveChannel}
+            />
+            <AISidebar
+              isOpen={showAISidebar}
+              onClose={() => setShowAISidebar(false)}
+              channelId={channel.id}
+            />
+          </>
         )}
       </div>
     </div>
