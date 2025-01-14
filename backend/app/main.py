@@ -1,16 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-import models
-from database import SessionLocal, engine
+from .database import SessionLocal, engine
+from . import models
 import os
 from dotenv import load_dotenv
 import logging
-from middleware import SearchRateLimitMiddleware, CacheControlMiddleware
-from embedding_service import embedding_service
+from .middleware import SearchRateLimitMiddleware, CacheControlMiddleware
+from .embedding_service import embedding_service
 
 # Import all routers
-from routers import (
+from .routers import (
     auth,
     users,
     channels,

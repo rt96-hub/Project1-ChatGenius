@@ -6,9 +6,9 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import Session
-from database import SessionLocal
-import models
-from embedding_service import embedding_service
+from app.database import SessionLocal
+import backend.app.models as models
+from app.embedding_service import embedding_service
 import logging
 from time import sleep
 

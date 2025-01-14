@@ -7,8 +7,8 @@ from jose.exceptions import JWTError
 import requests
 from functools import lru_cache
 from sqlalchemy.orm import Session
-import crud
-from database import SessionLocal
+from . import crud
+from .database import SessionLocal
 from dotenv import load_dotenv
 import logging
 

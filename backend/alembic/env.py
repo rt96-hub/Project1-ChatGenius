@@ -5,11 +5,17 @@ from sqlalchemy import pool
 
 from alembic import context
 
-import os, sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+import os
+import sys
+from pathlib import Path
 
-from database import Base, DB_URL
-import models  # This will load all our models
+# Get the parent directory of alembic (which is the backend directory)
+backend_dir = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(backend_dir))
+
+# Import the SQLAlchemy components
+from app.database import Base, DB_URL
+from app import models  # This will load all our models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

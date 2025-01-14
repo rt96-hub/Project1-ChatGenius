@@ -6,7 +6,9 @@ from sqlalchemy import or_, and_, func
 from typing import List, Optional
 import os
 
-from .. import models, schemas
+from .. import models
+
+from .. import schemas
 from ..database import get_db
 from ..auth0 import get_current_user
 from ..crud.channels import get_user_channels

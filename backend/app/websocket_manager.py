@@ -1,7 +1,7 @@
 from typing import Dict, List, Set
 from fastapi import WebSocket, status
-import models
-import schemas
+from . import models
+from . import schemas
 
 class ConnectionManager:
     def __init__(self):

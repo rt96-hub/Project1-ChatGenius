@@ -3,14 +3,13 @@ from sqlalchemy import func
 import logging
 from typing import List, Optional
 
-from ..models import Channel, UserChannel, Message, User, ChannelRole
-from .. import schemas
+from .. import models, schemas
 from .users import get_user
 
 logger = logging.getLogger(__name__)
 
 def create_channel(db: Session, channel: schemas.ChannelCreate, creator_id: int):
-    db_channel = Channel(
+    db_channel = models.Channel(
         name=channel.name,
         description=channel.description,
         owner_id=creator_id
@@ -20,20 +19,20 @@ def create_channel(db: Session, channel: schemas.ChannelCreate, creator_id: int)
     db.refresh(db_channel)
     
     # Add creator as first member
-    db_user_channel = UserChannel(user_id=creator_id, channel_id=db_channel.id)
+    db_user_channel = models.UserChannel(user_id=creator_id, channel_id=db_channel.id)
     db.add(db_user_channel)
     db.commit()
     
     return db_channel
 
 def get_channel(db: Session, channel_id: int):
-    return db.query(Channel).filter(Channel.id == channel_id).first()
+    return db.query(models.Channel).filter(models.Channel.id == channel_id).first()
 
 def get_user_channels(db: Session, user_id: int, skip: int = 0, limit: int = 100):
-    return (db.query(Channel)
-            .join(UserChannel)
-            .filter(UserChannel.user_id == user_id)
-            .options(joinedload(Channel.users))
+    return (db.query(models.Channel)
+            .join(models.UserChannel)
+            .filter(models.UserChannel.user_id == user_id)
+            .options(joinedload(models.Channel.users))
             .offset(skip)
             .limit(limit)
             .all())
@@ -51,30 +50,30 @@ def delete_channel(db: Session, channel_id: int):
     db_channel = get_channel(db, channel_id)
     if db_channel:
         # Delete all user_channel associations first
-        db.query(UserChannel).filter(UserChannel.channel_id == channel_id).delete()
+        db.query(models.UserChannel).filter(models.UserChannel.channel_id == channel_id).delete()
         # Delete all messages in the channel
-        db.query(Message).filter(Message.channel_id == channel_id).delete()
+        db.query(models.Message).filter(models.Message.channel_id == channel_id).delete()
         # Delete the channel
         db.delete(db_channel)
         db.commit()
     return db_channel
 
 def get_channel_members(db: Session, channel_id: int):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    channel = db.query(models.Channel).filter(models.Channel.id == channel_id).first()
     if not channel:
         return None
     return channel.users
 
 def remove_channel_member(db: Session, channel_id: int, user_id: int):
-    db_user_channel = (db.query(UserChannel)
-                      .filter(UserChannel.channel_id == channel_id,
-                             UserChannel.user_id == user_id)
+    db_user_channel = (db.query(models.UserChannel)
+                      .filter(models.UserChannel.channel_id == channel_id,
+                             models.UserChannel.user_id == user_id)
                       .first())
     if db_user_channel:
         # Delete any roles the user has in the channel
-        db.query(ChannelRole).filter(
-            ChannelRole.channel_id == channel_id,
-            ChannelRole.user_id == user_id
+        db.query(models.ChannelRole).filter(
+            models.ChannelRole.channel_id == channel_id,
+            models.ChannelRole.user_id == user_id
         ).delete()
         
         # Delete the user-channel association
@@ -91,7 +90,7 @@ def update_channel_privacy(db: Session, channel_id: int, privacy_update: schemas
         db.refresh(db_channel)
     return db_channel
 
-def join_channel(db: Session, channel_id: int, user_id: int) -> Optional[Channel]:
+def join_channel(db: Session, channel_id: int, user_id: int) -> Optional[models.Channel]:
     """Add a user to a channel."""
     # Get the channel
     channel = get_channel(db, channel_id=channel_id)
@@ -103,7 +102,7 @@ def join_channel(db: Session, channel_id: int, user_id: int) -> Optional[Channel
         return channel
     
     # Add user to channel
-    db_user_channel = UserChannel(user_id=user_id, channel_id=channel_id)
+    db_user_channel = models.UserChannel(user_id=user_id, channel_id=channel_id)
     db.add(db_user_channel)
     db.commit()
     
@@ -119,9 +118,9 @@ def leave_channel(db: Session, channel_id: int, user_id: int):
     # Check if user is the owner
     if db_channel.owner_id == user_id:
         # Find another user to transfer ownership to
-        other_user = (db.query(UserChannel)
-                     .filter(UserChannel.channel_id == channel_id,
-                            UserChannel.user_id != user_id)
+        other_user = (db.query(models.UserChannel)
+                     .filter(models.UserChannel.channel_id == channel_id,
+                            models.UserChannel.user_id != user_id)
                      .first())
         if other_user:
             db_channel.owner_id = other_user.user_id
@@ -134,24 +133,24 @@ def leave_channel(db: Session, channel_id: int, user_id: int):
 
 def get_available_channels(db: Session, user_id: int, skip: int = 0, limit: int = 50):
     """Get all public channels that the user is not a member of."""
-    return (db.query(Channel)
-            .filter(Channel.is_private == False)
-            .filter(Channel.is_dm == False)
-            .filter(~Channel.users.any(User.id == user_id))
-            .options(joinedload(Channel.users))
-            .order_by(Channel.created_at.desc())
+    return (db.query(models.Channel)
+            .filter(models.Channel.is_private == False)
+            .filter(models.Channel.is_dm == False)
+            .filter(~models.Channel.users.any(models.User.id == user_id))
+            .options(joinedload(models.Channel.users))
+            .order_by(models.Channel.created_at.desc())
             .offset(skip)
             .limit(limit)
             .all())
 
 def user_in_channel(db: Session, user_id: int, channel_id: int) -> bool:
     """Check if a user is a member of a channel."""
-    return db.query(UserChannel).filter(
-        UserChannel.user_id == user_id,
-        UserChannel.channel_id == channel_id
+    return db.query(models.UserChannel).filter(
+        models.UserChannel.user_id == user_id,
+        models.UserChannel.channel_id == channel_id
     ).first() is not None
 
-def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> Channel:
+def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> models.Channel:
     """Create a new DM channel with multiple users."""
     # Generate DM name (can be customized for group DMs)
     users = [get_user(db, user_id) for user_id in dm.user_ids]
@@ -169,7 +168,7 @@ def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> Channel:
         channel_name = dm.name if dm.name else f"group-dm-{creator_id}-{'-'.join(str(uid) for uid in dm.user_ids)}"
 
     # Create the DM channel
-    db_channel = Channel(
+    db_channel = models.Channel(
         name=channel_name,
         description="Direct Message Channel",
         owner_id=creator_id,
@@ -182,7 +181,7 @@ def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> Channel:
     
     # Add all users to the channel
     for user in valid_users:
-        db_user_channel = UserChannel(user_id=user.id, channel_id=db_channel.id)
+        db_user_channel = models.UserChannel(user_id=user.id, channel_id=db_channel.id)
         db.add(db_user_channel)
     
     db.commit()
@@ -192,18 +191,18 @@ def create_dm(db: Session, creator_id: int, dm: schemas.DMCreate) -> Channel:
 def get_user_dms(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     """Get user's DM channels ordered by most recent message."""
     # Subquery to get the latest message timestamp for each channel
-    latest_messages = (db.query(Message.channel_id,
-                              func.max(Message.created_at).label('latest_message_at'))
-                      .group_by(Message.channel_id)
+    latest_messages = (db.query(models.Message.channel_id,
+                              func.max(models.Message.created_at).label('latest_message_at'))
+                      .group_by(models.Message.channel_id)
                       .subquery())
     
     # Query for DM channels with latest message timestamp
-    query = (db.query(Channel)
-             .join(UserChannel)
-             .filter(UserChannel.user_id == user_id)
-             .filter(Channel.is_dm == True)
-             .options(joinedload(Channel.users))
-             .outerjoin(latest_messages, Channel.id == latest_messages.c.channel_id)
+    query = (db.query(models.Channel)
+             .join(models.UserChannel)
+             .filter(models.UserChannel.user_id == user_id)
+             .filter(models.Channel.is_dm == True)
+             .options(joinedload(models.Channel.users))
+             .outerjoin(latest_messages, models.Channel.id == latest_messages.c.channel_id)
              .order_by(latest_messages.c.latest_message_at.desc().nullslast())
              .offset(skip)
              .limit(limit))
@@ -216,19 +215,19 @@ def get_existing_dm_channel(db: Session, user1_id: int, user2_id: int) -> int:
     
     # Find channels that both users are members of
     shared_channels = (
-        db.query(Channel.id)
-        .join(UserChannel, Channel.id == UserChannel.channel_id)
-        .filter(Channel.is_dm == True)  # Must be a DM channel
-        .filter(UserChannel.user_id.in_([user1_id, user2_id]))
-        .group_by(Channel.id)
-        .having(func.count(UserChannel.user_id) == 2)  # Must have exactly 2 members
+        db.query(models.Channel.id)
+        .join(models.UserChannel, models.Channel.id == models.UserChannel.channel_id)
+        .filter(models.Channel.is_dm == True)  # Must be a DM channel
+        .filter(models.UserChannel.user_id.in_([user1_id, user2_id]))
+        .group_by(models.Channel.id)
+        .having(func.count(models.UserChannel.user_id) == 2)  # Must have exactly 2 members
     )
     
     # From these channels, find one where these are the only two members
     dm_channel = (
-        db.query(Channel.id)
-        .filter(Channel.id.in_(shared_channels))
-        .filter(~Channel.users.any(~User.id.in_([user1_id, user2_id])))  # No other members
+        db.query(models.Channel.id)
+        .filter(models.Channel.id.in_(shared_channels))
+        .filter(~models.Channel.users.any(~models.User.id.in_([user1_id, user2_id])))  # No other members
         .first()
     )
     

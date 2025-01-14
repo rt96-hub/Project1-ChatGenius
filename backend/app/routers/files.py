@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from botocore.config import Config
 import os
 
-from .. import models, schemas, crud
+from .. import models, schemas
+
+from .. import crud
 from ..database import get_db
 from ..auth0 import get_current_user
 from ..events_manager import events

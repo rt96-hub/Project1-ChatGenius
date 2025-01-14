@@ -1,5 +1,5 @@
 from typing import Any, Dict, List
-from websocket_manager import manager
+from .websocket_manager import manager
 
 class EventsManager:
     @staticmethod

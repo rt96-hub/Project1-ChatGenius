@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal
-import models
+import backend.app.models as models
 
 def seed_reactions():
     db = SessionLocal()
