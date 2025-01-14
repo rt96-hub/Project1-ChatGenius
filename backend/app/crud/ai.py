@@ -61,8 +61,8 @@ def create_conversation(
     db.add(user_message)
     db.flush()
     
-    # TODO: later will pass search results to frontend
-    ai_response_message, search_results_list = ai_response(initial_message, channel_id, user_id)
+    # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
+    ai_response_message, search_results_list = ai_response(prompt=initial_message, channel_id=channel_id)
     ai_message = create_ai_message(
         db=db,
         conversation_id=conversation.id,
@@ -123,8 +123,8 @@ def add_message_to_conversation(
         role='user'
     )
 
-    # TODO: later will pass search results to frontend
-    ai_response_message, search_results_list = ai_response(message, channel_id, user_id)
+    # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
+    ai_response_message, search_results_list = ai_response(prompt=message, channel_id=channel_id)
     ai_message = create_ai_message(
         db=db,
         conversation_id=conversation_id,
