@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { PencilIcon, TrashIcon, FaceSmileIcon, ArrowUturnLeftIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useApi } from '@/hooks/useApi';
@@ -66,13 +66,14 @@ interface ChatMessageProps {
 export default function ChatMessage({ message, currentUserId, channelId, onMessageUpdate, onMessageDelete, onNavigateToDM, onReply }: ChatMessageProps) {
   const api = useApi();
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(message.content);
+  const [editedContent, setEditedContent] = useState(message.content);
   const [isHovered, setIsHovered] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showEmojiSelector, setShowEmojiSelector] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
   const [replies, setReplies] = useState<Message[]>([]);
   const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
   const messageRef = useRef<HTMLDivElement>(null);
   const isOwner = message.user_id === currentUserId;
 
@@ -81,6 +82,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
     // Only update replies if the reply chain is open and this is a root message
     if (showReplies && message.parent_id === null && message.has_replies) {
       const fetchReplies = async () => {
+        setIsLoadingReplies(true);
         try {
           const response = await api.get(`/messages/${message.id}/reply-chain`);
           // Filter out the root message since we're already displaying it
@@ -88,44 +90,60 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
           setReplies(replyChain);
         } catch (error) {
           console.error('Failed to fetch reply chain:', error);
+        } finally {
+          setIsLoadingReplies(false);
         }
       };
-      fetchReplies();
+
+      // Debounce the fetch call
+      const timeoutId: NodeJS.Timeout = setTimeout(fetchReplies, 300);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
   }, [message, showReplies, api]);
 
   // Memoize the handlers
   const handleAddReaction = useCallback(async (reactionId: number) => {
     try {
-      // Check if user has already reacted with this emoji
-      const existingReaction = message.reactions?.find(
-        r => r.reaction_id === reactionId && r.user_id === currentUserId
-      );
-      
-      if (existingReaction) {
-        // If user has already reacted with this emoji, don't do anything
-        setShowEmojiSelector(false);
-        return;
-      }
-
-      const response = await api.post(`/channels/${channelId}/messages/${message.id}/reactions`, {
-        reaction_id: reactionId
-      });
+      await api.post(`/reactions/${message.id}`, { reaction_id: reactionId });
       
       const updatedMessage = {
         ...message,
-        reactions: [...(message.reactions || []), response.data]
+        reactions: [
+          ...(message.reactions || []),
+          {
+            id: Date.now(), // Temporary ID until refresh
+            message_id: message.id,
+            reaction_id: reactionId,
+            user_id: currentUserId,
+            created_at: new Date().toISOString(),
+            reaction: {
+              id: reactionId,
+              code: 'temp', // Will be updated by WebSocket
+              is_system: true,
+              image_url: null
+            },
+            user: {
+              id: currentUserId,
+              // Other user fields will be filled by WebSocket
+              email: '',
+              name: ''
+            }
+          }
+        ]
       };
       onMessageUpdate(updatedMessage);
       setShowEmojiSelector(false);
     } catch (error) {
       console.error('Failed to add reaction:', error);
     }
-  }, [api, channelId, message, onMessageUpdate, currentUserId]);
+  }, [api, message, onMessageUpdate, currentUserId]);
 
   const handleRemoveReaction = useCallback(async (reactionId: number) => {
     try {
-      await api.delete(`/channels/${channelId}/messages/${message.id}/reactions/${reactionId}`);
+      await api.delete(`/reactions/${message.id}/${reactionId}`);
       
       const updatedMessage = {
         ...message,
@@ -138,7 +156,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
     } catch (error) {
       console.error('Failed to remove reaction:', error);
     }
-  }, [api, channelId, message, onMessageUpdate, currentUserId]);
+  }, [api, message, onMessageUpdate, currentUserId]);
 
   const handleEmojiSelectorClose = useCallback(() => {
     setShowEmojiSelector(false);
@@ -169,28 +187,30 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
   };
 
   // Group reactions by type
-  const groupedReactions = (message.reactions || []).reduce((acc, reaction) => {
-    const key = reaction.reaction_id;
-    if (!acc[key]) {
-      acc[key] = {
-        count: 0,
-        users: [],
-        code: reaction.code || reaction.reaction?.code || 'unknown',
-        hasReacted: false
-      };
-    }
-    acc[key].count++;
-    acc[key].users.push(reaction.user);
-    if (reaction.user_id === currentUserId) {
-      acc[key].hasReacted = true;
-    }
-    return acc;
-  }, {} as { [key: number]: { count: number; users: User[]; code: string; hasReacted: boolean } });
+  const groupedReactions = useMemo(() => {
+    return (message.reactions || []).reduce((acc, reaction) => {
+      const key = reaction.reaction_id;
+      if (!acc[key]) {
+        acc[key] = {
+          code: reaction.reaction.code,
+          count: 0,
+          users: [],
+          hasReacted: false
+        };
+      }
+      acc[key].count++;
+      acc[key].users.push(reaction.user);
+      if (reaction.user_id === currentUserId) {
+        acc[key].hasReacted = true;
+      }
+      return acc;
+    }, {} as Record<number, { code: string; count: number; users: Array<{ id: number; name: string }>; hasReacted: boolean }>);
+  }, [message.reactions, currentUserId]);
 
   const handleEdit = async () => {
     try {
-      const response = await api.put(`/channels/${channelId}/messages/${message.id}`, {
-        content: editContent
+      const response = await api.put(`/messages/${channelId}/messages/${message.id}`, {
+        content: editedContent
       });
       onMessageUpdate(response.data);
       setIsEditing(false);
@@ -203,7 +223,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
     if (!window.confirm('Are you sure you want to delete this message?')) return;
     
     try {
-      await api.delete(`/channels/${channelId}/messages/${message.id}`);
+      await api.delete(`/messages/${channelId}/messages/${message.id}`);
       onMessageDelete(message.id);
     } catch (error) {
       console.error('Failed to delete message:', error);
@@ -216,24 +236,22 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
       handleEdit();
     } else if (e.key === 'Escape') {
       setIsEditing(false);
-      setEditContent(message.content);
+      setEditedContent(message.content);
     }
   };
 
   const handleToggleReplies = async () => {
-    // Only show replies dropdown for root messages that have replies
-    if (!message.has_replies || message.parent_id !== null) return;
-    
     if (!showReplies) {
       setIsLoadingReplies(true);
+      setReplyError(null);
       try {
-        // Use the reply-chain endpoint instead
         const response = await api.get(`/messages/${message.id}/reply-chain`);
-        // Filter out the root message since we're already displaying it
-        const replyChain = response.data.filter((m: Message) => m.id !== message.id);
-        setReplies(replyChain);
+        setReplies(response.data);
       } catch (error) {
         console.error('Failed to fetch reply chain:', error);
+        setReplyError('Failed to load replies. Please try again.');
+        setShowReplies(false);
+        return;
       } finally {
         setIsLoadingReplies(false);
       }
@@ -315,8 +333,8 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
           {isEditing ? (
             <div className="mt-1">
               <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px] resize-none"
                 autoFocus
@@ -331,7 +349,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
                 <button
                   onClick={() => {
                     setIsEditing(false);
-                    setEditContent(message.content);
+                    setEditedContent(message.content);
                   }}
                   className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
                 >
@@ -381,7 +399,7 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
                 <button
                   onClick={() => {
                     setIsEditing(true);
-                    setEditContent(message.content);
+                    setEditedContent(message.content);
                   }}
                   className="p-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50"
                   title="Edit message"
@@ -409,7 +427,10 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
             className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
             {isLoadingReplies ? (
-              <span>Loading replies...</span>
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                <span>Loading replies...</span>
+              </div>
             ) : (
               <>
                 {showReplies ? (
@@ -424,20 +445,39 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
             )}
           </button>
 
-          {showReplies && (
+          {replyError && (
+            <div className="mt-2 text-sm text-red-500 flex items-center gap-2">
+              <span>{replyError}</span>
+              <button
+                onClick={() => {
+                  setReplyError(null);
+                  handleToggleReplies();
+                }}
+                className="text-blue-500 hover:text-blue-600"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {showReplies && !replyError && (
             <div className="mt-2 space-y-2 border-l-2 border-gray-200 pl-4">
-              {replies.map(reply => (
-                <ChatMessage
-                  key={reply.id}
-                  message={reply}
-                  currentUserId={currentUserId}
-                  channelId={channelId}
-                  onMessageUpdate={onMessageUpdate}
-                  onMessageDelete={onMessageDelete}
-                  onNavigateToDM={onNavigateToDM}
-                  onReply={onReply}
-                />
-              ))}
+              {replies.length === 0 ? (
+                <div className="text-sm text-gray-500 italic">No replies found</div>
+              ) : (
+                replies.map(reply => (
+                  <ChatMessage
+                    key={reply.id}
+                    message={reply}
+                    currentUserId={currentUserId}
+                    channelId={channelId}
+                    onMessageUpdate={onMessageUpdate}
+                    onMessageDelete={onMessageDelete}
+                    onNavigateToDM={onNavigateToDM}
+                    onReply={onReply}
+                  />
+                ))
+              )}
             </div>
           )}
         </div>

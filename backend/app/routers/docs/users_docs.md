@@ -4,7 +4,7 @@ All endpoints in this router require authentication via Bearer token. They handl
 
 ## Endpoints
 
-### GET /me
+### GET /users/me
 Get the current authenticated user's information.
 
 #### Request
@@ -27,7 +27,7 @@ Get the current authenticated user's information.
   }
   ```
 
-### GET /by-last-dm
+### GET /users/by-last-dm
 Get all users ordered by their last DM interaction with the current user.
 
 #### Request
@@ -56,7 +56,7 @@ Get all users ordered by their last DM interaction with the current user.
   ]
   ```
 
-### GET /
+### GET /users/
 Get list of all users.
 
 #### Request
@@ -70,7 +70,7 @@ Get list of all users.
 - Status: 200 OK
 - Body: Array of User objects
 
-### GET /{user_id}
+### GET /users/{user_id}
 Get a specific user's information.
 
 #### Request
@@ -83,7 +83,7 @@ Get a specific user's information.
 - Status: 200 OK
 - Body: User object
 
-### PUT /me/bio
+### PUT /users/me/bio
 Update the current user's bio.
 
 #### Request
@@ -100,7 +100,7 @@ Update the current user's bio.
 - Status: 200 OK
 - Body: Updated User object
 
-### PUT /me/name
+### PUT /users/me/name
 Update the current user's name.
 
 #### Request

@@ -79,7 +79,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentChannelRef = useRef<number | null>(null);
-  const { sendMessage, addMessageListener } = useConnection();
+  const { addMessageListener } = useConnection();
   const [isUserSentMessage, setIsUserSentMessage] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -100,7 +100,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     if (!channelId) return;
     try {
       setIsLoadingMore(true);
-      const response = await api.get(`/channels/${channelId}/messages`, {
+      const response = await api.get(`/messages/${channelId}/messages`, {
         params: { skip: skipCount, limit: 50 },
         signal: abortControllerRef.current?.signal
       });
@@ -174,24 +174,17 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
                   return prev;
                 }
 
-                // If this is a reply message, update the root message's has_replies flag
-                let updatedMessages = [...prev];
+                // If this is a reply message, update the parent's has_replies flag
                 if (data.message.parent_id) {
-                  updatedMessages = updatedMessages.map(msg => {
-                    // Find the root message of the reply chain
-                    let currentMsg = data.message;
-                    while (currentMsg.parent_id && currentMsg.parent_id !== msg.id) {
-                      currentMsg = prev.find(m => m.id === currentMsg.parent_id) || currentMsg;
-                    }
-                    // If this is the root message, update its has_replies flag
-                    if (msg.id === currentMsg.parent_id) {
-                      return { ...msg, has_replies: true };
-                    }
-                    return msg;
-                  });
+                  return prev.map(msg => 
+                    msg.id === data.message.parent_id
+                      ? { ...msg, has_replies: true }
+                      : msg
+                  );
                 }
 
-                const newMessages = [...updatedMessages, data.message].sort((a, b) => 
+                // Only add non-reply messages to the main chat area
+                const newMessages = [...prev, data.message].sort((a, b) => 
                   new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
                 // If this is a message from the current user, trigger scroll
@@ -392,27 +385,34 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
         formData.append('file', selectedFile);
       }
   
-      // Decide on the endpoint
-      // Could be /messages/with-file if not a reply
-      // or /messages/{parentId}/reply-with-file if a reply
+      // Decide on the endpoint based on whether it's a reply and has a file
       let endpoint: string;
-      if (replyingTo) {
-        endpoint = `/channels/${channelId}/messages/${replyingTo.id}/reply-with-file`;
+      if (selectedFile) {
+        if (replyingTo) {
+          endpoint = `/messages/${channelId}/messages/${replyingTo.id}/reply-with-file`;
+        } else {
+          endpoint = `/messages/${channelId}/messages/with-file`;
+        }
       } else {
-        endpoint = `/channels/${channelId}/messages/with-file`;
+        if (replyingTo) {
+          endpoint = `/messages/${channelId}/messages/${replyingTo.id}/reply`;
+        } else {
+          endpoint = `/messages/${channelId}/messages`;
+        }
       }
   
       // Send via API
-      // (Make sure your backend route accepts multipart/form-data)
-      const response = await api.post(endpoint, formData, {
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const progress = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setUploadProgress(progress);
-          }
-        },
+      await api.post(endpoint, selectedFile ? formData : { content: messageContent }, {
+        ...(selectedFile && {
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const progress = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              setUploadProgress(progress);
+            }
+          },
+        }),
       });
   
       // Clear out the form states
@@ -420,22 +420,18 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       setSelectedFile(null);
       setUploadProgress(0);
       setUploadError(null);
+      setReplyingTo(null); // Clear reply state after sending
   
-      // Append the newly created message to local state
-      // or rely on your WebSocket "new_message" event to do so
-      const createdMessage = response.data;
-      setMessages((prev) => [...prev, createdMessage]);
-      
-      // Send WebSocket event for the new message
-      sendMessage({
-        type: 'new_message',
-        channel_id: channelId,
-        message: createdMessage
-      });
+      // Remove the redundant WebSocket broadcast since server handles it
+      // sendMessage({
+      //   type: 'new_message',
+      //   channel_id: channelId,
+      //   message: createdMessage
+      // });
   
     } catch (error) {
-      console.error('Failed to send message with file:', error);
-      setUploadError('Something went wrong while uploading your file.');
+      console.error('Failed to send message:', error);
+      setUploadError(selectedFile ? 'Something went wrong while uploading your file.' : 'Failed to send message.');
     }
   };
 

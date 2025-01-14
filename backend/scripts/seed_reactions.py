@@ -1,6 +1,12 @@
+import os
+import sys
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+from app.database import SessionLocal
+import app.models as models
 from sqlalchemy.orm import Session
-from database import SessionLocal
-import backend.app.models as models
 
 def seed_reactions():
     db = SessionLocal()

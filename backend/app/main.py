@@ -37,6 +37,17 @@ SEARCH_WINDOW_SIZE = int(os.getenv('SEARCH_RATE_LIMIT_WINDOW', '60'))
 # Create the main app
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    """
+    Root endpoint that returns API status and information
+    """
+    return {
+        "status": "online",
+        "api_version": "1.0",
+        "message": "ChatGenius API is running. Please use the appropriate endpoints for specific functionality."
+    }
+
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,

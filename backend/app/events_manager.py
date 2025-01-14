@@ -100,7 +100,8 @@ class EventsManager:
     async def broadcast_message_created(channel_id: int, message: Any, user: Any):
         """Broadcast new message event"""
         await manager.broadcast_to_channel({
-            "type": "message_created",
+            "type": "new_message",
+            "channel_id": channel_id,
             "message": {
                 "id": message.id,
                 "content": message.content,

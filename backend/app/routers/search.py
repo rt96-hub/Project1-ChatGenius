@@ -31,7 +31,7 @@ def validate_date_params(from_date: Optional[datetime], to_date: Optional[dateti
             detail="from_date must be before to_date"
         )
 
-@router.get("/search/messages", response_model=schemas.MessageList)
+@router.get("/messages", response_model=schemas.MessageList)
 async def search_messages(
     query: str,
     channel_id: Optional[int] = None,
@@ -106,7 +106,7 @@ async def search_messages(
             detail=f"Search failed: {str(e)}"
         )
 
-@router.get("/search/users")
+@router.get("/users")
 async def search_users(
     query: str,
     exclude_channel: Optional[int] = None,
@@ -161,7 +161,7 @@ async def search_users(
             detail=f"Search failed: {str(e)}"
         )
 
-@router.get("/search/channels")
+@router.get("/channels")
 async def search_channels(
     query: str,
     include_private: bool = False,
@@ -224,7 +224,7 @@ async def search_channels(
             detail=f"Search failed: {str(e)}"
         )
 
-@router.get("/search/files")
+@router.get("/files")
 async def search_files(
     query: str,
     channel_id: Optional[int] = None,

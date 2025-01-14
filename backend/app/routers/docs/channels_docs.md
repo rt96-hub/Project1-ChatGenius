@@ -4,7 +4,7 @@ All endpoints in this router require authentication via Bearer token. They handl
 
 ## Endpoints
 
-### POST /
+### POST /channels/
 Creates a new channel.
 
 #### Request
@@ -35,7 +35,7 @@ Creates a new channel.
   }
   ```
 
-### GET /me
+### GET /channels/me
 Returns list of channels the current user is a member of.
 
 #### Request
@@ -49,7 +49,7 @@ Returns list of channels the current user is a member of.
 - Status: 200 OK
 - Body: Array of Channel objects
 
-### GET /available
+### GET /channels/available
 Returns list of public channels available to join.
 
 #### Request
@@ -63,7 +63,7 @@ Returns list of public channels available to join.
 - Status: 200 OK
 - Body: Array of Channel objects
 
-### GET /{channel_id}
+### GET /channels/{channel_id}
 Get details of a specific channel.
 
 #### Request
@@ -76,7 +76,7 @@ Get details of a specific channel.
 - Status: 200 OK
 - Body: Channel object
 
-### PUT /{channel_id}
+### PUT /channels/{channel_id}
 Update channel details (owner only).
 
 #### Request
@@ -97,7 +97,7 @@ Update channel details (owner only).
 - Status: 200 OK
 - Body: Updated Channel object
 
-### DELETE /{channel_id}
+### DELETE /channels/{channel_id}
 Delete a channel (owner only).
 
 #### Request
@@ -110,7 +110,7 @@ Delete a channel (owner only).
 - Status: 200 OK
 - Body: Deleted Channel object
 
-### GET /{channel_id}/members
+### GET /channels/{channel_id}/members
 Get list of channel members.
 
 #### Request
@@ -131,7 +131,7 @@ Get list of channel members.
   }
   ```
 
-### DELETE /{channel_id}/members/{user_id}
+### DELETE /channels/{channel_id}/members/{user_id}
 Remove a member from channel (owner only).
 
 #### Request
@@ -150,7 +150,7 @@ Remove a member from channel (owner only).
   }
   ```
 
-### PUT /{channel_id}/privacy
+### PUT /channels/{channel_id}/privacy
 Update channel privacy settings (owner only).
 
 #### Request
@@ -169,7 +169,7 @@ Update channel privacy settings (owner only).
 - Status: 200 OK
 - Body: Updated Channel object
 
-### POST /{channel_id}/join
+### POST /channels/{channel_id}/join
 Join a public channel.
 
 #### Request
@@ -182,7 +182,7 @@ Join a public channel.
 - Status: 200 OK
 - Body: Channel object
 
-### POST /{channel_id}/leave
+### POST /channels/{channel_id}/leave
 Leave a channel.
 
 #### Request
@@ -200,7 +200,7 @@ Leave a channel.
   }
   ```
 
-### POST /dm
+### POST /channels/dm
 Create a new DM channel.
 
 #### Request
@@ -217,7 +217,7 @@ Create a new DM channel.
 - Status: 200 OK
 - Body: Channel object
 
-### GET /me/dms
+### GET /channels/me/dms
 Get list of user's DM channels.
 
 #### Request

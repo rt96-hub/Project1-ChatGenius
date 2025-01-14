@@ -76,22 +76,27 @@ async def create_message_endpoint(
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     
-    return create_message(
+    db_message = create_message(
         db=db,
         channel_id=channel_id,
         user_id=current_user.id,
         message=message
     )
 
+    # Broadcast the new message to all users in the channel
+    await events.broadcast_message_created(channel_id, db_message, current_user)
+    
+    return db_message
+
 @router.get("/{channel_id}/messages", response_model=schemas.MessageList)
-def get_channel_messages(
+def get_channel_messages_endpoint(
     channel_id: int,
     skip: int = 0,
     limit: int = 50,
     include_reactions: bool = False,
     parent_only: bool = True,
     db: Session = Depends(get_db),
-    current_user: schemas.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user)
 ):
     # Verify channel access
     channel = get_channel(db, channel_id)
@@ -202,7 +207,7 @@ async def create_message_reply_endpoint(
     
     return reply
 
-@router.get("/messages/{message_id}/reply-chain", response_model=List[schemas.Message])
+@router.get("/{message_id}/reply-chain", response_model=List[schemas.Message])
 async def get_message_reply_chain_endpoint(
     message_id: int,
     db: Session = Depends(get_db),
@@ -279,8 +284,11 @@ async def create_message_with_file(
             user_id=current_user.id,
             message=message_data
         )
+        
+        logger.info(f"Created message (ID: {db_message.id}) for channel {channel_id} by user {current_user.id}")
 
-    logger.info(f"Created message (ID: {db_message.id}) for channel {channel_id} by user {current_user.id}")
+        # Broadcast the new message to all users in the channel
+        await events.broadcast_message_created(channel_id, db_message, current_user)
 
     # Handle file if present
     if file:

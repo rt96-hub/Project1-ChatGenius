@@ -11,7 +11,7 @@ All endpoints in this router require authentication via Bearer token. They handl
 
 ## Endpoints
 
-### POST /{channel_id}/messages
+### POST /messages/{channel_id}/messages
 Create a new message in a channel.
 
 #### Request
@@ -46,7 +46,7 @@ Create a new message in a channel.
   }
   ```
 
-### GET /{channel_id}/messages
+### GET /messages/{channel_id}/messages
 Get messages from a channel.
 
 #### Request
@@ -70,7 +70,7 @@ Get messages from a channel.
   }
   ```
 
-### PUT /{channel_id}/messages/{message_id}
+### PUT /messages/{channel_id}/messages/{message_id}
 Update a message (author only).
 
 #### Request
@@ -93,7 +93,7 @@ Update a message (author only).
 - Status: 200 OK
 - Body: Updated Message object
 
-### DELETE /{channel_id}/messages/{message_id}
+### DELETE /messages/{channel_id}/messages/{message_id}
 Delete a message (author only).
 
 #### Request
@@ -107,7 +107,7 @@ Delete a message (author only).
 - Status: 200 OK
 - Body: Deleted Message object
 
-### POST /{channel_id}/messages/{parent_id}/reply
+### POST /messages/{channel_id}/messages/{parent_id}/reply
 Create a reply to a message.
 
 #### Request
@@ -143,7 +143,7 @@ Get all messages in a reply chain.
 - Status: 200 OK
 - Body: Array of Message objects
 
-### POST /{channel_id}/messages/with-file
+### POST /messages/{channel_id}/messages/with-file
 Create a message with a file attachment.
 
 #### Request
@@ -160,7 +160,7 @@ Create a message with a file attachment.
 - Status: 200 OK
 - Body: Message object with file metadata
 
-### POST /{channel_id}/messages/{parent_id}/reply-with-file
+### POST /messages/{channel_id}/messages/{parent_id}/reply-with-file
 Create a reply message with a file attachment.
 
 #### Request

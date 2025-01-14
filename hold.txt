@@ -1,0 +1,154 @@
+Comparison of Frontend API with Backend Documentation
+READING MD DOCS
+After reviewing the frontend/frontend_api.md and the backend documentation files in backend/app/routers/docs/, I've identified discrepancies between the API endpoints used in the frontend and those documented in the backend. Below is a list of endpoints that are present in the frontend documentation but either missing or have different paths in the backend documentation, along with the frontend components that use them.
+---
+Identified API Discrepancies
+1. POST /channels/{channel_id}/messages
+Frontend Usage:
+Component: ChatArea component
+Description: Used to send a new message in a channel without attachments.
+Frontend Reference: frontend/frontend_api.md under Messages > Send Message
+Backend Documentation:
+Actual Endpoint: POST /messages/{channel_id}/messages
+Backend Reference: backend/app/routers/docs/messages_docs.md under POST /messages/{channel_id}/messages
+Action Required:
+Update the ChatArea component to use the correct backend endpoint: POST /messages/{channel_id}/messages.
+---
+2. POST /channels/{channel_id}/messages/with-file
+Frontend Usage:
+Component: ChatArea component
+Description: Used to send a new message in a channel with a file attachment.
+Frontend Reference: frontend/frontend_api.md lines 177–183
+Backend Documentation:
+Actual Endpoint: POST /messages/{channel_id}/messages/with-file
+Backend Reference: backend/app/routers/docs/messages_docs.md under POST /messages/{channel_id}/messages/with-file
+Action Required:
+Update the ChatArea component to use the correct backend endpoint: POST /messages/{channel_id}/messages/with-file.
+---
+3. POST /channels/{channel_id}/messages/{parent_id}/reply
+Frontend Usage:
+Component: ChatArea component
+Description: Used to send a reply to an existing message without attachments.
+Frontend Reference: frontend/frontend_api.md lines 185–187
+Backend Documentation:
+Actual Endpoint: POST /messages/{channel_id}/messages/{parent_id}/reply
+Backend Reference: backend/app/routers/docs/messages_docs.md under POST /messages/{channel_id}/messages/{parent_id}/reply
+Action Required:
+Update the ChatArea component to use the correct backend endpoint: POST /messages/{channel_id}/messages/{parent_id}/reply.
+---
+4. POST /channels/{channel_id}/messages/{parent_id}/reply-with-file
+Frontend Usage:
+Component: ChatArea component
+Description: Used to send a reply with a file attachment.
+Frontend Reference: frontend/frontend_api.md lines 195–203
+Backend Documentation:
+Actual Endpoint: POST /messages/{channel_id}/messages/{parent_id}/reply-with-file
+Backend Reference: backend/app/routers/docs/messages_docs.md under POST /messages/{channel_id}/messages/{parent_id}/reply-with-file
+Action Required:
+Update the ChatArea component to use the correct backend endpoint: POST /messages/{channel_id}/messages/{parent_id}/reply-with-file.
+---
+5. GET /messages/{message_id}/reply-chain
+Frontend Usage:
+Component: ChatArea component
+Description: Used to retrieve the entire reply chain for a message.
+Frontend Reference: frontend/frontend_api.md lines 202–205
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/messages_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/messages.py at line 205:
+Action Required:
+Document the GET /messages/{message_id}/reply-chain endpoint in backend/app/routers/docs/messages_docs.md to reflect its usage.
+Ensure the endpoint functions as expected in the backend.
+---
+(o1 wrong) 6. GET /channels/available
+Frontend Usage:
+Component: ChannelList component
+Description: Used to fetch a list of public channels available to join.
+Frontend Reference: frontend/frontend_api.md under Channels > Get Available Channels
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/channels_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/channels.py at line 57:
+Action Required:
+Document the GET /channels/available endpoint in backend/app/routers/docs/channels_docs.md.
+Verify that the frontend and backend agree on the endpoint's functionality.
+---
+(o1 wrong) 7. GET /channels/me/dms
+Frontend Usage:
+Component: DMList component
+Description: Fetches all direct message (DM) channels for the current user.
+Frontend Reference: Used when displaying the list of DMs.
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/channels_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/channels.py at line 247:
+Action Required:
+Document the GET /channels/me/dms endpoint in backend/app/routers/docs/channels_docs.md.
+Ensure consistency between frontend usage and backend implementation.
+---
+(o1 wrong) 8. GET /channels/dm/check/{other_user_id}
+Frontend Usage:
+Component: Likely used when initiating a DM with another user to check if a DM channel already exists.
+Frontend Reference: Used during the DM creation workflow.
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/channels_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/channels.py at line 257:
+Action Required:
+Document the GET /channels/dm/check/{other_user_id} endpoint in backend/app/routers/docs/channels_docs.md.
+Ensure proper communication between frontend and backend for DM checks.
+---
+(o1 wrong) 9. PUT /users/me/bio
+Frontend Usage:
+Component: UserProfile component
+Description: Allows the current user to update their bio.
+Frontend Reference: Used in the user settings or profile page.
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/users_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/users.py at line 75:
+Action Required:
+Document the PUT /users/me/bio endpoint in backend/app/routers/docs/users_docs.md.
+Verify that the endpoint works as intended in the backend.
+---
+(o1 wrong) 10. PUT /users/me/name
+Frontend Usage:
+Component: UserProfile component
+Description: Allows the current user to update their display name.
+Frontend Reference: Used in the user settings or profile page.
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/users_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/users.py at line 94:
+Action Required:
+Document the PUT /users/me/name endpoint in backend/app/routers/docs/users_docs.md.
+Ensure that the backend correctly handles name updates.
+---
+(o1 wrong) 11. GET /search/messages
+Frontend Usage:
+Component: SearchBar or SearchResults component
+Description: Used to search messages across channels.
+Frontend Reference: Used when a user performs a message search.
+Backend Documentation:
+Endpoint Status: Not documented in backend/app/routers/docs/search_docs.md.
+Backend Code Reference: The endpoint exists in backend/app/routers/search.py at line 34:
+Action Required:
+Document the GET /search/messages endpoint in backend/app/routers/docs/search_docs.md.
+Ensure search functionality aligns between frontend and backend.
+---
+Summary
+Several endpoints used in the frontend are either not documented in the backend's .md files or have different paths.
+The main discrepancies involve endpoints under the /channels path in the frontend that are under /messages in the backend.
+It's crucial to:
+Update frontend components to use the correct backend endpoints.
+Update backend documentation to include all available endpoints.
+Ensuring consistency between the frontend and backend will prevent API call failures and enhance maintainability.
+
+
+Next Steps
+Frontend Updates:
+Review the ChatArea, ChannelList, DMList, UserProfile, and Search components.
+Update the API endpoint paths to match the backend's actual endpoints.
+Backend Documentation Updates:
+Update the .md files in backend/app/routers/docs/ to include all endpoints.
+Ensure request and response formats are correctly documented.
+Testing:
+After updates, test all API calls from the frontend to confirm they're working as expected.
+Verify that data is properly sent and received between the frontend and backend.
+
+double check /channels/${channelId}/messages and see that they need to be /messages/${channelId}/messages
+same for reactions, i think they start with channel still

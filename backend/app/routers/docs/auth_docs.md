@@ -2,7 +2,7 @@
 
 All endpoints in this router handle authentication-related operations. They require valid Auth0 Bearer tokens in the Authorization header.
 
-## POST /sync
+## POST /auth/sync
 
 Synchronizes Auth0 user data with the local database.
 
@@ -39,7 +39,7 @@ Synchronizes Auth0 user data with the local database.
 - 403 Forbidden: Token subject doesn't match provided Auth0 ID
 - 500 Internal Server Error: Server-side error
 
-## GET /verify
+## GET /auth/verify
 
 Verifies Auth0 token and returns user data.
 

@@ -4,7 +4,7 @@ All endpoints in this router require authentication via Bearer token. They handl
 
 ## Endpoints
 
-### GET /
+### GET /reactions/
 Get all available reactions.
 
 #### Request
@@ -28,7 +28,7 @@ Get all available reactions.
   ]
   ```
 
-### POST /{message_id}
+### POST /reactions/{message_id}
 Add a reaction to a message.
 
 #### Request
@@ -57,7 +57,7 @@ Add a reaction to a message.
   }
   ```
 
-### DELETE /{message_id}/{reaction_id}
+### DELETE /reactions/{message_id}/{reaction_id}
 Remove a reaction from a message.
 
 #### Request

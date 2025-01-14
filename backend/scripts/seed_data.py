@@ -16,8 +16,8 @@ import logging
 import uuid
 import string
 
-from backend.app.models import User, Channel, Message, UserChannel, MessageReaction, Reaction
-from database import SessionLocal
+from app.models import User, Channel, Message, UserChannel, MessageReaction, Reaction
+from app.database import SessionLocal
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
