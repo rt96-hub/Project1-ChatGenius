@@ -52,6 +52,13 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
         }
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSubmit(e);
+        }
+    };
+
     const toggleConversation = (conversationId: number) => {
         setExpandedConversation(expandedConversation === conversationId ? null : conversationId);
     };
@@ -132,6 +139,7 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
                         <textarea
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={handleKeyDown}
                             placeholder="Ask me anything about this channel..."
                             className="w-full p-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             rows={3}

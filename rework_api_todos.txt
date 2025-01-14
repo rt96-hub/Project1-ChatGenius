@@ -3,4 +3,6 @@ move s3 initialization out of routers, let the s3 client be called into files.py
 find reactions endpoints on the frontend and get them to match new put and delete endpoints
 
 when the user engages in a multi turn conversation with the ai we need to pass in the entire conversation in to an ai response function
-create a version of the ai response that searches the
+create a version of the ai response that searches the channel and timestamps
+create a version that lets you tag a user and then search for them in the channel
+make it so you can just hit enter to send the ai message
