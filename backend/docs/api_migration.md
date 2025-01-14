@@ -11,10 +11,10 @@ Below is a proposed plan detailing each file to be created or updated, and which
 
 ## 1. Files and Endpoints
 
-[ ] **Routers Folder**  
+[x] **Routers Folder**  
 Create a new folder named "routers" to hold the various route files.
 
-[ ] **routers/auth.py**  
+[x] **routers/auth.py**  
 This file will contain the Auth0-related login and verification endpoints. From @main.py and @auth0.py, move or create the following endpoints here:
 
 [CODE START]
@@ -22,7 +22,7 @@ This file will contain the Auth0-related login and verification endpoints. From 
 @router.get("/auth/verify") => verify_auth_endpoint (if you have one)
 [CODE END]
 
-[ ] **routers/users.py**  
+[x] **routers/users.py**  
 Move the user profile endpoints from @main.py into this file:
 
 [CODE START]
@@ -31,7 +31,7 @@ Move the user profile endpoints from @main.py into this file:
 @router.get("/users/me") => get_current_user_data (if needed)
 [CODE END]
 
-[ ] **routers/channels.py**  
+[x] **routers/channels.py**  
 Move the channel endpoints from @main.py into this file:
 
 [CODE START]
@@ -41,7 +41,7 @@ Move the channel endpoints from @main.py into this file:
 @router.post("/channels/{channel_id}/join") => join_channel_endpoint (if desired)
 [CODE END]
 
-[ ] **routers/files.py**  
+[x] **routers/files.py**  
 Take the routes from @file_uploads.py and place them here:
 
 [CODE START]
@@ -50,7 +50,7 @@ Take the routes from @file_uploads.py and place them here:
 @router.delete("/files/{file_id}") => delete_file
 [CODE END]
 
-[ ] **routers/search.py**  
+[x] **routers/search.py**  
 Keep or move the routes already in @search.py here:
 
 [CODE START]
@@ -60,7 +60,29 @@ Keep or move the routes already in @search.py here:
 @router.get("/search/files") => search_files
 [CODE END]
 
-[ ] **routers/websockets.py**  
+[x] **routers/messages.py**  
+Keep or move the routes already in @main.py here:
+[CODE START]
+@router.post("/channels/{channel_id}/messages") => create_message_endpoint  
+@router.get("/channels/{channel_id}/messages") => get_channel_messages  
+@router.get("/channels/{channel_id}/messages/{message_id}") => get_message  
+@router.put("/channels/{channel_id}/messages/{message_id}") => update_message  
+@router.delete("/channels/{channel_id}/messages/{message_id}") => delete_message
+@router.post("/channels/{channel_id}/messages/{message_id}/reply") => create_message_reply_endpoint
+@router.get("/channels/{channel_id}/messages/{message_id}/reply-chain") => get_message_reply_chain_endpoint
+@router.post("/channels/{channel_id}/messages/with-file") => create_message_with_file_endpoint
+@router.post("/channels/{channel_id}/messages/{message_id}/reply-with-file") => create_reply_with_file_endpoint
+[CODE END]
+
+[x] **routers/reactions.py**  
+Keep or move the routes already in @main.py here:
+[CODE START]
+@router.get("/reactions/") => list_reactions  
+@router.post("/channels/{channel_id}/messages/{message_id}/reactions") => add_reaction_endpoint  
+@router.delete("/channels/{channel_id}/messages/{message_id}/reactions/{reaction_id}") => remove_reaction_endpoint
+[CODE END]
+
+[x] **routers/websockets.py**  
 Move the WebSocket endpoint from @main.py to this file:
 
 [CODE START]
@@ -75,7 +97,7 @@ This file will handle all real-time communication. If you have separate domain-s
 
 Create a "crud" folder to hold domain-specific CRUD files:
 
-[ ] **crud/users.py**  
+[x] **crud/users.py**  
 [CODE START]
 get_user  
 get_user_by_email  
@@ -86,7 +108,7 @@ update_user_bio
 update_user_name  
 [CODE END]
 
-[ ] **crud/channels.py**  
+[x] **crud/channels.py**  
 [CODE START]
 create_channel  
 get_channel  
@@ -101,7 +123,7 @@ leave_channel
 get_available_channels
 [CODE END]
 
-[ ] **crud/messages.py**  
+[x] **crud/messages.py**  
 [CODE START]
 get_message  
 create_message => (If you have a create_message function)  
@@ -109,7 +131,7 @@ create_reply => (If you have a create_reply function)
 get_message_reply_chain  
 [CODE END]
 
-[ ] **crud/reactions.py**  
+[x] **crud/reactions.py**  
 [CODE START]
 get_all_reactions  
 get_reaction  
@@ -156,13 +178,14 @@ This ensures that each route is cleanly separated into its respective domain fil
 
 ## Progress Summary
 
-- [ ] Create and move endpoints to routers/auth.py  
-- [ ] Create and move endpoints to routers/users.py  
-- [ ] Create and move endpoints to routers/channels.py  
-- [ ] Create and move endpoints to routers/files.py  
-- [ ] Create and move endpoints to routers/search.py  
-- [ ] Create and move WebSocket endpoint to routers/websockets.py  
-- [ ] Split CRUD functions across crud/users.py, crud/channels.py, crud/messages.py, crud/reactions.py (and optionally crud/files.py)  
+- [x] Create and move endpoints to routers/auth.py  
+- [x] Create and move endpoints to routers/users.py  
+- [x] Create and move endpoints to routers/channels.py  
+- [x] Create and move endpoints to routers/files.py  
+- [x] Create and move endpoints to routers/search.py  
+- [x] Create and move endpoints to routers/reactions.py  
+- [x] Create and move WebSocket endpoint to routers/websockets.py  
+- [x] Split CRUD functions across crud/users.py, crud/channels.py, crud/messages.py, crud/reactions.py (and optionally crud/files.py)  
 - [ ] Clean up main.py to only include initialization and router inclusion  
 
 This modular approach will help organize your code and make it easier to scale and maintain.
