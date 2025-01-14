@@ -4,6 +4,7 @@ from sqlalchemy.orm import joinedload
 import logging
 from sqlalchemy import func
 from typing import List, Tuple, Optional
+from embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ def delete_channel(db: Session, channel_id: int):
     return db_channel
 
 def create_message(db: Session, channel_id: int, user_id: int, message: schemas.MessageCreate):
+    """Create a new message and generate its embedding"""
     db_message = models.Message(
         content=message.content,
         channel_id=channel_id,
@@ -153,7 +155,95 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
+
+    try:
+        # Generate embedding and get vector_id
+        vector_id = embedding_service.create_message_embedding(
+            message_content=db_message.content,
+            message_id=db_message.id,
+            user_id=user_id,
+            channel_id=channel_id,
+            parent_id=None,  # This is a parent message
+            file_name=None  # Add file handling later if needed
+        )
+        
+        # Update message with vector_id
+        db_message.vector_id = vector_id
+        db.commit()
+        db.refresh(db_message)
+        logger.info(f"Created message {db_message.id} with vector_id {vector_id}")
+    except Exception as e:
+        logger.error(f"Error creating message embedding: {e}")
+        # Don't fail the message creation if embedding fails
+        # We can add a background task to retry later if needed
+    
     return db_message
+
+def update_message(db: Session, message_id: int, message_update: schemas.MessageCreate) -> models.Message:
+    """Update a message and its embedding"""
+    db_message = db.query(models.Message).filter(models.Message.id == message_id).first()
+    if not db_message:
+        return None
+    
+    # Store old content in case we need to rollback
+    old_content = db_message.content
+    
+    try:
+        # Update message content
+        db_message.content = message_update.content
+        db.commit()
+        db.refresh(db_message)
+
+        # Only update embedding if we have a vector_id
+        if db_message.vector_id:            
+            # Update the embedding
+            embedding_service.update_message_embedding(
+                vector_id=db_message.vector_id,
+                new_content=message_update.content,
+                message_id=message_id,
+                has_file=bool(db_message.files),
+                file_name=db_message.files[0].file_name if db_message.files else None,
+                parent_id=db_message.parent_id
+            )
+            logger.info(f"Updated message {message_id} embedding")
+    except Exception as e:
+        logger.error(f"Error updating message embedding: {e}")
+        # Rollback content update if embedding update fails
+        db_message.content = old_content
+        db.commit()
+        db.refresh(db_message)
+        raise
+    
+    return db_message
+
+def delete_message(db: Session, message_id: int) -> models.Message:
+    """Delete a message and its embedding"""
+    db_message = (db.query(models.Message)
+                 .filter(models.Message.id == message_id)
+                 .options(joinedload(models.Message.user))
+                 .first())
+    if not db_message:
+        return None
+    
+    # Create a copy of the message with its relationships
+    message_copy = schemas.Message.from_orm(db_message)
+    
+    try:
+        # Delete embedding first if it exists
+        if db_message.vector_id:
+            embedding_service.delete_message_embedding(db_message.vector_id)
+            logger.info(f"Deleted embedding for message {message_id}")
+        
+        # Then delete the message
+        db.delete(db_message)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error deleting message embedding: {e}")
+        # Continue with message deletion even if embedding deletion fails
+        db.delete(db_message)
+        db.commit()
+    
+    return message_copy
 
 def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int = 50, include_reactions: bool = False, parent_only: bool = True):
     # Start with base query
@@ -214,31 +304,6 @@ def get_channel_messages(db: Session, channel_id: int, skip: int = 0, limit: int
         total=total,
         has_more=has_more
     )
-
-def update_message(db: Session, message_id: int, message_update: schemas.MessageCreate) -> models.Message:
-    db_message = db.query(models.Message).filter(models.Message.id == message_id).first()
-    if not db_message:
-        return None
-    
-    db_message.content = message_update.content
-    db.commit()
-    db.refresh(db_message)
-    return db_message
-
-def delete_message(db: Session, message_id: int) -> models.Message:
-    db_message = (db.query(models.Message)
-                 .filter(models.Message.id == message_id)
-                 .options(joinedload(models.Message.user))
-                 .first())
-    if not db_message:
-        return None
-    
-    # Create a copy of the message with its relationships
-    message_copy = schemas.Message.from_orm(db_message)
-    
-    db.delete(db_message)
-    db.commit()
-    return message_copy
 
 def get_message(db: Session, message_id: int) -> models.Message:
     return db.query(models.Message).filter(models.Message.id == message_id).first()
@@ -552,6 +617,7 @@ def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.Mes
     Create a reply to a message. If the parent message already has a reply,
     the new message will be attached to the last message in the chain.
     Returns a tuple of (reply_message, root_message).
+    Create a reply message with embedding
     """
     # First check if parent message exists
     parent_message = db.query(models.Message).filter(models.Message.id == parent_id).first()
@@ -564,14 +630,34 @@ def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.Mes
     # Create the new reply message
     db_message = models.Message(
         content=message.content,
-        channel_id=parent_message.channel_id,  # Use the same channel as parent
+        channel_id=parent_message.channel_id,
         user_id=user_id,
-        parent_id=last_message.id  # Set parent_id to the last message in chain
+        parent_id=last_message.id
     )
     
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
+    
+    try:
+        # Generate embedding for the reply
+        vector_id = embedding_service.create_message_embedding(
+            message_content=db_message.content,
+            message_id=db_message.id,
+            user_id=user_id,
+            channel_id=parent_message.channel_id,
+            parent_id=last_message.id,
+            file_name=None
+        )
+        
+        # Update message with vector_id
+        db_message.vector_id = vector_id
+        db.commit()
+        db.refresh(db_message)
+        logger.info(f"Created reply message {db_message.id} with vector_id {vector_id}")
+    except Exception as e:
+        logger.error(f"Error creating reply message embedding: {e}")
+        # Don't fail the reply creation if embedding fails
     
     # Get the root message (the one with no parent)
     root_message = parent_message

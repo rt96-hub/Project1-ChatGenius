@@ -1,0 +1,1 @@
+Ensure the main message endpoint is used for both regular messages, replies, and messages with files

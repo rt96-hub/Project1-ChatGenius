@@ -373,204 +373,69 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     setUploadError(null);
   };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!channelId || (!newMessage.trim() && !selectedFile)) return;
-
+  async function handleSendMessage(e?: React.FormEvent<HTMLFormElement>) {
+    if (e) e.preventDefault();
+  
+    // Trim text
     const messageContent = newMessage.trim();
-    setNewMessage(''); // Clear input immediately for better UX
-    
-    // Reset textarea height using the ref
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '45px';
+  
+    // If there's no content and no file, do nothing
+    if (!messageContent && !selectedFile) {
+      return;
     }
-
+  
     try {
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('content', messageContent);
       if (selectedFile) {
-        // First create the message
-        let messageResponse;
-        try {
-          // Use the reply endpoint if replying to a message
-          const endpoint = replyingTo 
-            ? `/channels/${channelId}/messages/${replyingTo.id}/reply`
-            : `/channels/${channelId}/messages`;
-          
-          messageResponse = await api.post(
-            endpoint,
-            { content: messageContent || 'Uploading file...' }
-          );
-        } catch (error) {
-          console.error('Failed to create message:', error);
-          throw error;
-        }
-
-        // Then upload the file with the real message ID
-        const formData = new FormData();
         formData.append('file', selectedFile);
-        formData.append('message_id', messageResponse.data.id.toString());
-
-        try {
-          const fileUploadResponse = await api.post(
-            `/files/upload`,
-            formData,
-            {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-              onUploadProgress: (progressEvent) => {
-                const progress = Math.round(
-                  (progressEvent.loaded * 100) / (progressEvent.total || 100)
-                );
-                setUploadProgress(progress);
-              },
-            }
-          );
-
-          // Update the message with file reference if needed
-          if (messageContent) {
-            try {
-              await api.put(
-                `/channels/${channelId}/messages/${messageResponse.data.id}`,
-                { content: messageContent }
-              );
-            } catch (updateError) {
-              console.error('Failed to update message content:', updateError);
-            }
-          }
-
-          // Broadcast the message via WebSocket
-          try {
-            await sendMessage({
-              type: replyingTo ? "message_reply" : "new_message",
-              channel_id: channelId,
-              content: messageContent || 'File uploaded',
-              ...(replyingTo ? {
-                parent_id: replyingTo.id,
-                parent: replyingTo
-              } : {}),
-              files: [fileUploadResponse.data]
-            });
-          } catch (wsError) {
-            console.error('WebSocket broadcast failed:', wsError);
-            // Even if WebSocket fails, we still have the HTTP response
-            setMessages(prev => {
-              if (prev.some(m => m.id === messageResponse.data.id)) return prev;
-              
-              // If this is a reply, update the parent message's has_replies flag
-              let updatedMessages = [...prev];
-              if (replyingTo) {
-                updatedMessages = updatedMessages.map(msg => {
-                  if (msg.id === replyingTo.id) {
-                    return { ...msg, has_replies: true };
-                  }
-                  return msg;
-                });
-              }
-
-              const newMessage = {
-                ...messageResponse.data,
-                content: messageContent || 'File uploaded',
-                files: [fileUploadResponse.data],
-                parent_id: replyingTo?.id || null,
-                parent: replyingTo || null
-              };
-
-              // Only add to messages array if it's not a reply
-              if (!replyingTo) {
-                updatedMessages.push(newMessage);
-              }
-
-              const sortedMessages = updatedMessages.sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-              setIsUserSentMessage(true);
-              return sortedMessages;
-            });
-          }
-        } catch (uploadError) {
-          console.error('Failed to upload file:', uploadError);
-          // Try to delete the message if file upload failed
-          try {
-            await api.delete(`/channels/${channelId}/messages/${messageResponse.data.id}`);
-          } catch (deleteError) {
-            console.error('Failed to delete message after file upload failed:', deleteError);
-          }
-          throw uploadError;
-        }
-        
-        // Clear file state after successful upload
-        setSelectedFile(null);
-        setUploadProgress(0);
+      }
+  
+      // Decide on the endpoint
+      // Could be /messages/with-file if not a reply
+      // or /messages/{parentId}/reply-with-file if a reply
+      let endpoint: string;
+      if (replyingTo) {
+        endpoint = `/channels/${channelId}/messages/${replyingTo.id}/reply-with-file`;
       } else {
-        // For regular messages without files, try WebSocket first
-        try {
-          const messageData = {
-            type: replyingTo ? "message_reply" : "new_message",
-            channel_id: channelId,
-            content: messageContent,
-            ...(replyingTo ? {
-              parent_id: replyingTo.id,
-              parent: replyingTo
-            } : {})
-          };
-
-          await sendMessage(messageData);
-        } catch (wsError) {
-          console.error('WebSocket send failed:', wsError);
-          // If WebSocket fails, fallback to HTTP
-          const endpoint = replyingTo 
-            ? `/channels/${channelId}/messages/${replyingTo.id}/reply`
-            : `/channels/${channelId}/messages`;
-            
-          const response = await api.post(
-            endpoint,
-            { content: messageContent }
-          );
-          
-          if (response.data) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === response.data.id)) return prev;
-
-              // If this is a reply, update the parent message's has_replies flag
-              let updatedMessages = [...prev];
-              if (replyingTo) {
-                updatedMessages = updatedMessages.map(msg => {
-                  if (msg.id === replyingTo.id) {
-                    return { ...msg, has_replies: true };
-                  }
-                  return msg;
-                });
-              }
-
-              const newMessage = {
-                ...response.data,
-                parent_id: replyingTo?.id || null,
-                parent: replyingTo || null
-              };
-
-              // Only add to messages array if it's not a reply
-              if (!replyingTo) {
-                updatedMessages.push(newMessage);
-              }
-
-              const sortedMessages = updatedMessages.sort((a, b) => 
-                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-              setIsUserSentMessage(true);
-              return sortedMessages;
-            });
+        endpoint = `/channels/${channelId}/messages/with-file`;
+      }
+  
+      // Send via API
+      // (Make sure your backend route accepts multipart/form-data)
+      const response = await api.post(endpoint, formData, {
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            );
+            setUploadProgress(progress);
           }
-        }
-      }
-
-      // Clear reply state after sending
-      setReplyingTo(null);
+        },
+      });
+  
+      // Clear out the form states
+      setNewMessage('');
+      setSelectedFile(null);
+      setUploadProgress(0);
+      setUploadError(null);
+  
+      // Append the newly created message to local state
+      // or rely on your WebSocket "new_message" event to do so
+      const createdMessage = response.data;
+      setMessages((prev) => [...prev, createdMessage]);
+      
+      // Send WebSocket event for the new message
+      sendMessage({
+        type: 'new_message',
+        channel_id: channelId,
+        message: createdMessage
+      });
+  
     } catch (error) {
-      console.error('Failed to send message:', error);
-      setUploadError('Failed to upload file. Please try again.');
-      if (!selectedFile) {
-        setNewMessage(messageContent);
-      }
+      console.error('Failed to send message with file:', error);
+      setUploadError('Something went wrong while uploading your file.');
     }
   };
 
@@ -705,7 +570,8 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSendMessage(e);
+                  // Call handleSendMessage without passing e
+                  handleSendMessage();
                 }
               }}
               placeholder="Type a message..."

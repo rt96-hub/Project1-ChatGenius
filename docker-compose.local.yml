@@ -47,6 +47,9 @@ services:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB}
       - ALLOWED_FILE_TYPES=${ALLOWED_FILE_TYPES}
       - ROOT_PATH=
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX}
     volumes:
       - ./backend:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

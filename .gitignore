@@ -115,3 +115,5 @@ dump.rdb
 backend/.env
 docker-compose.local.yml
 docker-compose.yml
+
+local-rag-testing/

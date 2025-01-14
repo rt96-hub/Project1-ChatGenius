@@ -1,7 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request, APIRouter
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status, Request, APIRouter, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 import models, schemas, crud
 from database import SessionLocal, engine
 from auth0 import get_current_user, verify_token
@@ -13,7 +13,7 @@ from file_uploads import router as file_uploads_router
 from search import router as search_router
 from websocket_manager import manager
 from middleware import SearchRateLimitMiddleware, CacheControlMiddleware
-
+from embedding_service import embedding_service
 # Configure logging for errors only
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
@@ -25,6 +25,31 @@ MAX_TOTAL_CONNECTIONS = int(os.getenv('MAX_TOTAL_WEBSOCKET_CONNECTIONS', '1000')
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
 MAX_SEARCH_REQUESTS = int(os.getenv('MAX_SEARCH_REQUESTS_PER_MINUTE', '60'))
 SEARCH_WINDOW_SIZE = int(os.getenv('SEARCH_RATE_LIMIT_WINDOW', '60'))
+
+# Load environment variables/any S3 config if not already loaded
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID', '')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY', '')
+AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME', '')
+AWS_S3_REGION = os.getenv('AWS_S3_REGION', 'us-east-2')
+
+MAX_FILE_SIZE_MB = int(os.getenv('MAX_FILE_SIZE_MB', '50'))
+ALLOWED_FILE_TYPES = os.getenv('ALLOWED_FILE_TYPES', 'image/*,application/pdf,text/*').split(',')
+
+from botocore.config import Config
+import boto3
+from datetime import datetime
+from typing import List, Optional
+import magic
+import uuid
+
+s3_client = boto3.client(
+    's3',
+    region_name=AWS_S3_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+    config=Config(s3={'addressing_style': 'virtual'}, signature_version='s3v4')
+)
+
 
 # Create the main app without root_path
 app = FastAPI()
@@ -552,7 +577,7 @@ def delete_channel_endpoint(
     return crud.delete_channel(db=db, channel_id=channel_id)
 
 @api_router.post("/channels/{channel_id}/messages", response_model=schemas.Message)
-def create_message_endpoint(
+async def create_message_endpoint(
     channel_id: int,
     message: schemas.MessageCreate,
     db: Session = Depends(get_db),
@@ -1084,6 +1109,295 @@ async def join_channel_endpoint(
     await manager.broadcast_member_joined(channel_id, current_user)
     
     return updated_channel
+
+def validate_file_type(content_type: str) -> bool:
+    """Validate if the file type is allowed based on ALLOWED_FILE_TYPES."""
+    for allowed_type in ALLOWED_FILE_TYPES:
+        if allowed_type.endswith('/*'):
+            if content_type.split('/')[0] == allowed_type.split('/')[0]:
+                return True
+        elif content_type == allowed_type:
+            return True
+    return False
+
+def generate_s3_key(filename: str, message_id: int) -> str:
+    """Generate a unique S3 key for the file."""
+    timestamp = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+    unique_id = str(uuid.uuid4())[:8]
+    extension = os.path.splitext(filename)[1]
+    return f"messages/{message_id}/{timestamp}-{unique_id}{extension}"
+
+@api_router.post("/channels/{channel_id}/messages/with-file", response_model=schemas.Message)
+async def create_message_with_file(
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+    file: Optional[UploadFile] = File(None),
+    content: Optional[str] = Form(None),
+    parent_id: Optional[int] = Form(None),
+):
+    """
+    Creates a message (optionally a reply, if parent_id provided) and an optional file 
+    in one request, attaching the file to the newly created message.
+    """
+    # Validate channel membership
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [u.id for u in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # If there's no text content and no file, cannot create an empty message
+    if (not content or not content.strip()) and not file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create an empty message with no file and no text."
+        )
+
+    # If parent_id is provided, treat it as a reply flow
+    if parent_id:
+        parent_msg = crud.get_message(db, message_id=parent_id)
+        if not parent_msg:
+            raise HTTPException(status_code=404, detail="Parent message not found")
+        if parent_msg.channel_id != channel_id:
+            raise HTTPException(status_code=400, detail="Parent message not in this channel")
+        # Use the existing create_reply logic
+        db_message, root_message = crud.create_reply(
+            db=db,
+            parent_id=parent_id,
+            user_id=current_user.id,
+            message=schemas.MessageReplyCreate(content=content or "")
+        )
+    else:
+        # Create a brand-new message
+        # (Re-use or call an existing function in crud to create the message)
+        message_data = schemas.MessageCreate(content=content or "")
+        db_message = crud.create_message(
+            db=db,
+            channel_id=channel_id,
+            user_id=current_user.id,
+            message=message_data
+        )
+
+    logger.info(f"Created message (ID: {db_message.id}) for channel {channel_id} by user {current_user.id}")
+
+    # Handle file if present
+    if file:
+        # Read file
+        file_bytes = await file.read()
+
+        # Validate file size
+        if len(file_bytes) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE_MB}MB"
+            )
+
+        # Validate file type
+        mime = magic.Magic(mime=True)
+        content_type = mime.from_buffer(file_bytes)
+        if not validate_file_type(content_type):
+            raise HTTPException(status_code=400, detail=f"File type {content_type} not allowed")
+
+        # Generate S3 key (includes the newly created message id)
+        s3_key = generate_s3_key(file.filename, db_message.id)
+
+        # Upload to S3
+        try:
+            s3_client.put_object(
+                Bucket=AWS_S3_BUCKET_NAME,
+                Key=s3_key,
+                Body=file_bytes,
+                ContentType=content_type
+            )
+        except Exception as e:
+            logger.error(f"S3 upload error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to upload file to storage"
+            )
+        
+        # Create file record (FileUpload model)
+        file_upload = models.FileUpload(
+            message_id=db_message.id,
+            file_name=file.filename,
+            s3_key=s3_key,
+            content_type=content_type,
+            file_size=len(file_bytes),
+            uploaded_by=current_user.id
+        )
+        db.add(file_upload)
+        db.commit()
+        db.refresh(file_upload)
+
+        embed_metadata = {
+            "file_name": file.filename,
+            "has_file": True
+        }
+        embedding_service.update_metadata(db_message.vector_id, embed_metadata)
+        
+        logger.info(f"Attached file (ID: {file_upload.id}) to message {db_message.id}")
+
+    # Now refresh the message to include files in the response
+    db.refresh(db_message)
+    return db_message
+
+@api_router.post("/channels/{channel_id}/messages/{parent_id}/reply-with-file", response_model=schemas.Message)
+async def create_reply_message_with_file(
+    channel_id: int,
+    parent_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+    file: Optional[UploadFile] = File(None),
+    content: Optional[str] = Form(None),
+):
+    """
+    Creates a reply to the given parent message in the specified channel 
+    and optionally attaches a file, all in one request.
+    """
+    # Validate channel membership
+    db_channel = crud.get_channel(db, channel_id=channel_id)
+    if not db_channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [u.id for u in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Check parent message
+    parent_msg = crud.get_message(db, message_id=parent_id)
+    if not parent_msg:
+        raise HTTPException(status_code=404, detail="Parent message not found")
+    if parent_msg.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Parent message not in this channel")
+
+    # If there's no text content and no file, cannot create an empty message
+    if (not content or not content.strip()) and not file:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot create an empty reply with no file and no text."
+        )
+
+    # Use existing create_reply logic
+    db_message, root_message = crud.create_reply(
+        db=db,
+        parent_id=parent_id,
+        user_id=current_user.id,
+        message=schemas.MessageReplyCreate(content=content or "")
+    )
+
+    logger.info(
+        f"Created reply message (ID: {db_message.id}) "
+        f"to parent (ID: {parent_id}) in channel {channel_id} by user {current_user.id}"
+    )
+
+    # Handle file if present
+    if file:
+        # Read file
+        file_bytes = await file.read()
+
+        # Validate file size
+        if len(file_bytes) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File size exceeds maximum limit of {MAX_FILE_SIZE_MB}MB"
+            )
+
+        # Validate file type
+        mime = magic.Magic(mime=True)
+        content_type = mime.from_buffer(file_bytes)
+        if not validate_file_type(content_type):
+            raise HTTPException(status_code=400, detail=f"File type {content_type} not allowed")
+
+        # Generate S3 key (includes the newly created message id)
+        s3_key = generate_s3_key(file.filename, db_message.id)
+
+        # Upload to S3
+        try:
+            s3_client.put_object(
+                Bucket=AWS_S3_BUCKET_NAME,
+                Key=s3_key,
+                Body=file_bytes,
+                ContentType=content_type
+            )
+        except Exception as e:
+            logger.error(f"S3 upload error: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to upload file to storage"
+            )
+        
+        # Create file record
+        file_upload = models.FileUpload(
+            message_id=db_message.id,
+            file_name=file.filename,
+            s3_key=s3_key,
+            content_type=content_type,
+            file_size=len(file_bytes),
+            uploaded_by=current_user.id
+        )
+        db.add(file_upload)
+        db.commit()
+        db.refresh(file_upload)
+
+        embed_metadata = {
+            "file_name": file.filename,
+            "has_file": True
+        }
+        embedding_service.update_metadata(db_message.vector_id, embed_metadata)
+
+        logger.info(f"Attached file (ID: {file_upload.id}) to reply (message {db_message.id})")
+
+        # Broadcast the new reply message to all users in the channel
+    message_data = {
+        "type": "message_created",
+        "message": {
+            "id": db_message.id,
+            "content": db_message.content,
+            "created_at": db_message.created_at.isoformat(),
+            "updated_at": db_message.updated_at.isoformat(),
+            "user_id": db_message.user_id,
+            "channel_id": db_message.channel_id,
+            "parent_id": db_message.parent_id,
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "name": current_user.name,
+                "picture": current_user.picture
+            }
+        }
+    }
+    await manager.broadcast_to_channel(message_data, channel_id)
+    
+    # Also broadcast an update to the root message to show it has replies
+    root_message_data = {
+        "type": "message_update",
+        "channel_id": channel_id,
+        "message": {
+            "id": root_message.id,
+            "content": root_message.content,
+            "created_at": root_message.created_at.isoformat(),
+            "updated_at": root_message.updated_at.isoformat(),
+            "user_id": root_message.user_id,
+            "channel_id": root_message.channel_id,
+            "parent_id": root_message.parent_id,
+            "has_replies": True,
+            "user": {
+                "id": root_message.user.id,
+                "email": root_message.user.email,
+                "name": root_message.user.name,
+                "picture": root_message.user.picture
+            }
+        }
+    }
+    await manager.broadcast_to_channel(root_message_data, channel_id)
+
+    # Refresh to include attached files in the response
+    db.refresh(db_message)
+    return db_message
+
+
+
+
+
 
 # Include the router with the prefix
 app.include_router(api_router, prefix=os.getenv('ROOT_PATH', ''))
