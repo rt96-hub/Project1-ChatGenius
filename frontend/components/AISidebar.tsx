@@ -39,12 +39,14 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
         if (!query.trim()) return;
 
         try {
-            await sendMessage(channelId, query);
+            const newConversationId = await sendMessage(channelId, query);
             setQuery('');
             
             // Refresh conversations after sending message
             const response = await api.get(`/ai/channels/${channelId}/conversations`);
             setConversations(response.data.conversations);
+            // Expand the new conversation if we have an ID
+            setExpandedConversation(newConversationId ?? null);
         } catch (error) {
             console.error('Failed to submit AI query:', error);
         }
@@ -110,8 +112,8 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
                                                 key={message.id}
                                                 className={`p-2 rounded-lg ${
                                                     message.role === 'user'
-                                                        ? 'bg-blue-50 dark:bg-blue-900 ml-4'
-                                                        : 'bg-gray-50 dark:bg-gray-700 mr-4'
+                                                        ? 'bg-blue-50 dark:bg-blue-900 ml-4 text-gray-900 dark:text-white'
+                                                        : 'bg-gray-50 dark:bg-gray-700 mr-4 text-gray-900 dark:text-white'
                                                 }`}
                                             >
                                                 <p className="text-sm">{message.message}</p>

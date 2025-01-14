@@ -9,7 +9,7 @@ interface AIContextType {
     toggleSidebar: () => void;
     currentConversation: AIConversation | null;
     conversationHistory: AIConversation[];
-    sendMessage: (channelId: number, message: string) => Promise<void>;
+    sendMessage: (channelId: number, message: string) => Promise<number | undefined>;
     isLoading: boolean;
     error: string | null;
 }
@@ -39,34 +39,21 @@ export function AIProvider({ children }: AIProviderProps) {
             setIsLoading(true);
             setError(null);
 
-            // If there's no current conversation, create a new one
-            if (!currentConversation) {
-                const response = await api.post(`/ai/channels/${channelId}/query`, {
-                    query: message.trim()
-                });
-                const newConversation = response.data.conversation;
-                setCurrentConversation(newConversation);
-                setConversationHistory(prev => [newConversation, ...prev]);
-            } else {
-                // Add to existing conversation
-                const response = await api.post(`/ai/channels/${channelId}/conversations/${currentConversation.id}/messages`, {
-                    message: message.trim()
-                });
-                const updatedConversation = response.data;
-                setCurrentConversation(updatedConversation);
-                setConversationHistory(prev => 
-                    prev.map(conv => 
-                        conv.id === updatedConversation.id ? updatedConversation : conv
-                    )
-                );
-            }
+            // Always create a new conversation
+            const response = await api.post(`/ai/channels/${channelId}/query`, {
+                query: message.trim()
+            });
+            const newConversation = response.data.conversation;
+            setCurrentConversation(newConversation);
+            setConversationHistory(prev => [newConversation, ...prev]);
+            return newConversation.id; // Return the new conversation ID
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to send message');
             console.error('Failed to send message:', err);
         } finally {
             setIsLoading(false);
         }
-    }, [api, currentConversation]);
+    }, [api]);
 
     const value = {
         isOpen,
