@@ -7,7 +7,7 @@ interface UseAIReturn {
     toggleSidebar: () => void;
     currentConversation: AIConversation | null;
     conversationHistory: AIConversation[];
-    sendMessage: (channelId: number, message: string) => Promise<void>;
+    sendMessage: (channelId: number, message: string) => Promise<number | undefined>;
     isLoading: boolean;
     error: string | null;
 }
