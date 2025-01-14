@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { useApi } from '@/hooks/useApi';
 import type { AIMessage, AIConversation } from '@/types/ai';

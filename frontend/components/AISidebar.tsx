@@ -15,7 +15,7 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
     const { sendMessage, isLoading, error } = useAI();
     const [query, setQuery] = useState('');
     const [conversations, setConversations] = useState<AIConversation[]>([]);
-    const [expandedConversation, setExpandedConversation] = useState<string | null>(null);
+    const [expandedConversation, setExpandedConversation] = useState<number | null>(null);
 
     // Fetch conversations when the component mounts or channelId changes
     useEffect(() => {
@@ -50,7 +50,7 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
         }
     };
 
-    const toggleConversation = (conversationId: string) => {
+    const toggleConversation = (conversationId: number) => {
         setExpandedConversation(expandedConversation === conversationId ? null : conversationId);
     };
 
@@ -95,7 +95,7 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
                                     className="w-full flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700"
                                 >
                                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                                        {conversation.messages[0]?.content.slice(0, 50)}...
+                                        {conversation.messages[0]?.message.slice(0, 50)}...
                                     </span>
                                     {expandedConversation === conversation.id ? (
                                         <ChevronUpIcon className="h-4 w-4" />
@@ -114,7 +114,7 @@ export default function AISidebar({ isOpen, onClose, channelId }: AISidebarProps
                                                         : 'bg-gray-50 dark:bg-gray-700 mr-4'
                                                 }`}
                                             >
-                                                <p className="text-sm">{message.content}</p>
+                                                <p className="text-sm">{message.message}</p>
                                             </div>
                                         ))}
                                     </div>

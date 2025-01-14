@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional, ForwardRef, Generic, TypeVar
 from pydantic import EmailStr
+from pydantic import Field
 
 # Type variable for generic search response
 T = TypeVar('T')
@@ -257,6 +258,58 @@ class UserWithLastDM(BaseModel):
 
 class DMCheckResponse(BaseModel):
     channel_id: Optional[int] = None
+
+    class Config:
+        orm_mode = True
+
+class AIMessageBase(BaseModel):
+    message: str  # Changed from content to message to match database model
+    role: str  # 'user' or 'assistant'
+
+class AIMessageCreate(AIMessageBase):
+    pass
+
+class AIMessage(AIMessageBase):
+    id: int
+    conversation_id: int
+    channel_id: int
+    user_id: int
+    timestamp: datetime = Field(alias='created_at')
+    parameters: Optional[dict] = None
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+
+class AIConversationBase(BaseModel):
+    channelId: int = Field(alias='channel_id')
+
+class AIConversationCreate(AIConversationBase):
+    pass
+
+class AIConversation(AIConversationBase):
+    id: int
+    userId: int = Field(alias='user_id')
+    messages: List[AIMessage]
+    createdAt: datetime = Field(alias='created_at')
+    updatedAt: Optional[datetime] = Field(alias='last_message')  # Made optional
+
+    class Config:
+        orm_mode = True
+        allow_population_by_field_name = True
+
+class AIConversationList(BaseModel):
+    conversations: List[AIConversation]
+
+    class Config:
+        orm_mode = True
+
+class AIQueryRequest(BaseModel):
+    query: str
+
+class AIQueryResponse(BaseModel):
+    conversation: AIConversation
+    message: AIMessage
 
     class Config:
         orm_mode = True

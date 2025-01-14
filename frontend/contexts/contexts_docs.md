@@ -5,6 +5,7 @@ This document provides detailed information about the context providers used in 
 ## Table of Contents
 1. [Auth0Provider](#auth0provider)
 2. [ConnectionContext](#connectioncontext)
+3. [AIContext](#aicontext)
 
 ## Auth0Provider
 
@@ -170,3 +171,88 @@ Messages received from the WebSocket are parsed JSON objects with the same struc
 4. Use TypeScript interfaces for type safety in messages
 5. Implement proper error handling for WebSocket operations
 6. Monitor connection status changes for UI updates 
+
+## AIContext
+
+**File**: `AIContext.tsx`
+
+### Overview
+Manages AI conversation state and interactions throughout the application. This context provider enables real-time AI assistance features and conversation management.
+
+### Implementation Details
+
+#### Dependencies
+- `react`: For context and hooks functionality
+- `@/hooks/useApi`: For making API requests to the AI backend
+- `@/types/ai`: For TypeScript type definitions
+
+#### Type Definitions
+
+```typescript
+interface AIContextType {
+    isOpen: boolean;
+    toggleSidebar: () => void;
+    currentConversation: AIConversation | null;
+    conversationHistory: AIConversation[];
+    sendMessage: (channelId: number, message: string) => Promise<void>;
+    isLoading: boolean;
+    error: string | null;
+}
+
+interface AIProviderProps {
+    children: ReactNode;
+}
+```
+
+### Key Features
+
+#### State Management
+1. **Sidebar Control**
+   - Manages visibility of AI sidebar
+   - Provides toggle functionality
+
+2. **Conversation Tracking**
+   - Maintains current active conversation
+   - Stores conversation history
+   - Updates conversations in real-time
+
+3. **Loading and Error States**
+   - Tracks ongoing AI operations
+   - Manages error messages
+   - Provides loading indicators
+
+### API Interactions
+
+#### Send Message Request
+```http
+POST /ai/channels/{channelId}/query
+Request Body:
+{
+    "query": string
+}
+
+Response (200 OK):
+{
+    "conversation": {
+        "id": string,
+        "messages": Array<{
+            "id": string,
+            "content": string,
+            "role": "user" | "assistant"
+        }>
+    }
+}
+```
+
+### Used By
+- `hooks/useAI.ts`: Custom hook for accessing AI functionality
+- `components/AISidebar.tsx`: AI conversation interface
+- `components/ChatArea.tsx`: Message display and interaction
+- Other components requiring AI features
+
+### Best Practices
+1. Wrap components requiring AI functionality with AIProvider
+2. Handle loading states appropriately
+3. Implement proper error handling
+4. Use TypeScript types for type safety
+5. Consider caching strategies for conversation history 

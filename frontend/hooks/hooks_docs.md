@@ -5,6 +5,7 @@ This directory contains custom React hooks that handle authentication and API in
 ## Table of Contents
 - [useAuth](#useauth)
 - [useApi](#useapi)
+- [useAI](#useai)
 
 ## useAuth
 
@@ -154,3 +155,78 @@ try {
 3. Consider implementing request retries for token acquisition failures
 4. Use the hook within authenticated routes/components only
 5. Prefer this hook over direct `createAuthenticatedApi` usage in React components 
+
+## useAI
+
+**File**: `useAI.ts`
+
+### Overview
+A custom hook that provides access to the AI assistant functionality, managing conversation state and interactions with the AI system. This hook must be used within components wrapped by the `AIProvider`.
+
+### Dependencies
+- `react`: For context functionality
+- `@/contexts/AIContext`: For AI state management
+- `@/types/ai`: For TypeScript type definitions
+
+### Used By
+- `components/AISidebar.tsx`: For AI conversation management and display
+- `components/ChatArea.tsx`: For AI message integration
+- Other components requiring AI functionality
+
+### Implementation Details
+
+The hook provides the following functionality:
+
+1. **Sidebar State Management**
+   - `isOpen`: Boolean indicating if the AI sidebar is visible
+   - `toggleSidebar()`: Function to toggle sidebar visibility
+
+2. **Conversation Management**
+   - `currentConversation`: Current active AI conversation
+   - `conversationHistory`: Array of all AI conversations
+   - `sendMessage()`: Function to send messages to the AI
+
+3. **Loading and Error States**
+   - `isLoading`: Boolean indicating if an AI operation is in progress
+   - `error`: String containing any error messages
+
+### API Interface
+
+```typescript
+interface UseAIReturn {
+    isOpen: boolean;
+    toggleSidebar: () => void;
+    currentConversation: AIConversation | null;
+    conversationHistory: AIConversation[];
+    sendMessage: (channelId: number, message: string) => Promise<void>;
+    isLoading: boolean;
+    error: string | null;
+}
+```
+
+### Usage Example
+
+```typescript
+const {
+    isOpen,
+    toggleSidebar,
+    currentConversation,
+    sendMessage,
+    isLoading,
+    error
+} = useAI();
+
+// Send a message to the AI
+try {
+    await sendMessage(channelId, "What's the status of this project?");
+} catch (error) {
+    console.error('Failed to send message to AI:', error);
+}
+```
+
+### Best Practices
+1. Always use this hook within components wrapped by AIProvider
+2. Handle loading and error states appropriately in UI
+3. Implement proper error handling for AI operations
+4. Use TypeScript types for type safety
+5. Consider implementing retry logic for failed operations 

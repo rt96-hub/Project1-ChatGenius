@@ -43,4 +43,12 @@ from .reactions import (
     get_reaction,
     add_reaction_to_message,
     remove_reaction_from_message,
+)
+
+from .ai import (
+    get_conversation,
+    get_channel_conversations,
+    create_conversation,
+    create_ai_message,
+    add_message_to_conversation,
 ) 

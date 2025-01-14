@@ -18,7 +18,8 @@ from .routers import (
     search,
     messages,
     reactions,
-    websockets
+    websockets,
+    ai
 )
 
 # Configure logging for errors only
@@ -72,7 +73,7 @@ app.add_middleware(
 app.add_middleware(CacheControlMiddleware)
 
 # Create database tables
-models.Base.metadata.create_all(bind=engine)
+# models.Base.metadata.create_all(bind=engine)
 
 # Include all routers with appropriate prefixes
 root_path = os.getenv('ROOT_PATH', '')
@@ -84,6 +85,7 @@ app.include_router(search.router, prefix=f"{root_path}/search", tags=["search"])
 app.include_router(messages.router, prefix=f"{root_path}/messages", tags=["messages"])
 app.include_router(reactions.router, prefix=f"{root_path}/reactions", tags=["reactions"])
 app.include_router(websockets.router, prefix=root_path, tags=["websockets"])
+app.include_router(ai.router, prefix=f"{root_path}/ai", tags=["ai"])
 
 if __name__ == "__main__":
     import uvicorn

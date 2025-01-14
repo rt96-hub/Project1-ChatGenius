@@ -1,3 +1,6 @@
 Ensure the main message endpoint is used for both regular messages, replies, and messages with files
 move s3 initialization out of routers, let the s3 client be called into files.py and messages.py and search.py if needed, pass client, as well as bucket_name variable
 find reactions endpoints on the frontend and get them to match new put and delete endpoints
+
+when the user engages in a multi turn conversation with the ai we need to pass in the entire conversation in to an ai response function
+create a version of the ai response that searches the

@@ -18,6 +18,8 @@ class User(Base):
 
     messages = relationship("Message", back_populates="user")
     channels = relationship("Channel", secondary="user_channels", back_populates="users")
+    ai_conversations = relationship("AIConversation", back_populates="user")
+    ai_messages = relationship("AIMessage", back_populates="user")
 
 class Channel(Base):
     __tablename__ = "channels"
@@ -34,6 +36,8 @@ class Channel(Base):
     users = relationship("User", secondary="user_channels", back_populates="channels")
     owner = relationship("User", foreign_keys=[owner_id])
     roles = relationship("ChannelRole", back_populates="channel")
+    ai_conversations = relationship("AIConversation", back_populates="channel")
+    ai_messages = relationship("AIMessage", back_populates="channel")
 
     __table_args__ = (
         sa.CheckConstraint(
@@ -134,4 +138,35 @@ class FileUpload(Base):
         sa.Index('idx_file_uploads_uploaded_by', 'uploaded_by'),
         sa.Index('idx_file_uploads_uploaded_at', 'uploaded_at'),
     )
+
+class AIConversation(Base):
+    __tablename__ = "ai_conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    channel_id = Column(Integer, ForeignKey("channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_message = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", back_populates="ai_conversations")
+    channel = relationship("Channel", back_populates="ai_conversations")
+    messages = relationship("AIMessage", back_populates="conversation")
+
+class AIMessage(Base):
+    __tablename__ = "ai_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("ai_conversations.id"))
+    channel_id = Column(Integer, ForeignKey("channels.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String, nullable=False)  # 'user' or 'ai'
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    parameters = Column(sa.JSON, nullable=True)
+
+    # Relationships
+    conversation = relationship("AIConversation", back_populates="messages")
+    user = relationship("User", back_populates="ai_messages")
+    channel = relationship("Channel", back_populates="ai_messages")
 
