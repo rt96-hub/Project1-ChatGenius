@@ -9,7 +9,6 @@ load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 INDEX_NAME = os.getenv("PINECONE_INDEX")
-
 # Initialize OpenAI
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
@@ -24,7 +23,6 @@ def ai_response(prompt: str, channel_id: int=None, user_id: int=None):
             model="text-embedding-3-small"
         )
         query_embedding = response.data[0].embedding
-
         # Search Pinecone index
         search_results = index.query(
             vector=query_embedding,
@@ -60,4 +58,9 @@ def ai_response(prompt: str, channel_id: int=None, user_id: int=None):
 
 
     except Exception as e:
-        return "The AI is currently experiencing technical difficulties. Please try again later."
+        return "The AI is currently experiencing technical difficulties. Please try again later.", []
+
+
+if __name__ == "__main__":
+    print(ai_response("Status report", channel_id=9))
+
