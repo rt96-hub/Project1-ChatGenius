@@ -159,6 +159,32 @@ Add a new message to an existing AI conversation.
   }
   ```
 
+### GET /ai/channels/{channel_id}/summarize
+Get a summary of channel messages for a specified time period.
+
+#### Request
+- Headers:
+  - `Authorization`: Bearer token (required)
+- Path Parameters:
+  - `channel_id`: integer
+- Query Parameters:
+  - `quantity`: integer (required) - The number of time units to look back
+  - `time_unit`: string (required) - One of: "hours", "days", "weeks"
+
+#### Response
+- Status: 200 OK
+- Body:
+  ```json
+  {
+    "summary": "string"
+  }
+  ```
+
+#### Error Responses
+- 404: Channel not found
+- 403: Not a member of this channel
+- 500: Internal server error
+
 ## Access Control
 - All endpoints require authentication via Bearer token
 - Users can only access conversations they created

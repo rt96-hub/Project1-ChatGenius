@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 import logging
+from datetime import datetime, timedelta, timezone
 
 from .. import models, schemas
 from ..database import get_db
 from ..auth0 import get_current_user
+from ..llm_chat_service import summarize_messages
 from ..crud.ai import (
     get_conversation,
     get_channel_conversations,
@@ -13,6 +15,7 @@ from ..crud.ai import (
     add_message_to_conversation
 )
 from ..crud.channels import get_channel
+from ..crud.messages import get_channel_messages
 
 logger = logging.getLogger(__name__)
 
@@ -125,3 +128,50 @@ async def add_message_to_conversation_endpoint(
     )
     
     return updated_conversation
+
+@router.get("/channels/{channel_id}/summarize", response_model=schemas.ChannelSummaryResponse)
+async def summarize_channel(
+    channel_id: int,
+    quantity: int = Query(..., description="The number of time units to look back"),
+    time_unit: str = Query(..., description="The time unit to look back", regex="^(hours|days|weeks)$"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Summarize channel messages for a specified time period"""
+    # Verify user is member of channel
+    channel = get_channel(db, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [u.id for u in channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Calculate the start date based on quantity and time_unit
+    now = datetime.now(timezone.utc)
+    if time_unit == "hours":
+        start_date = now - timedelta(hours=quantity)
+    elif time_unit == "days":
+        start_date = now - timedelta(days=quantity)
+    else:  # weeks
+        start_date = now - timedelta(weeks=quantity)
+
+    # Get messages from the specified time period
+    messages = get_channel_messages(
+        db=db,
+        channel_id=channel_id,
+        skip=0,
+        limit=1000,  # Get a reasonable number of messages to summarize
+        include_reactions=False,
+        parent_only=False  # Include all messages for better context
+    ).messages
+
+    # Filter messages by date
+    messages = [m for m in messages if m.created_at >= start_date]
+
+    if not messages:
+        return schemas.ChannelSummaryResponse(summary="No messages found in the specified time period.")
+
+    # TODO: Implement actual summarization logic using LLM
+    # For now, return a placeholder
+    summary = summarize_messages(messages)
+    
+    return schemas.ChannelSummaryResponse(summary=summary)

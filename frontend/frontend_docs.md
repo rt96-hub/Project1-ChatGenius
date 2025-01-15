@@ -51,6 +51,8 @@ Layout
 │   └── ConfirmDialog
 └── ChatArea
     ├── ChannelHeader
+    │   ├── ChannelSettingsModal
+    │   └── ChannelSummarizeModal
     ├── ChatMessage
     │   ├── EmojiSelector
     │   └── UserProfilePopout
@@ -91,6 +93,7 @@ Layout
 - Message reactions (emoji)
 - User mentions and notifications
 - Infinite scroll for message history
+- Channel message summarization with customizable timeframe
 
 ### 3. User Interaction
 - User profile viewing
@@ -111,6 +114,25 @@ Layout
 ### ChatArea Component
 - Dependencies: Message components, WebSocket connection
 - Purpose: Main messaging interface
+
+### ChannelHeader Component
+- Dependencies: ProfileStatus, Auth0, Connection Context, ChannelSettingsModal, ChannelSummarizeModal
+- Purpose: Navigation, user status display, and channel management
+- Features:
+  - Channel information display
+  - Member count toggle
+  - Channel settings (for owners)
+  - AI assistant toggle
+  - Channel message summarization
+
+### ChannelSummarizeModal Component
+- Dependencies: None
+- Purpose: Provides interface for generating channel message summaries
+- Features:
+  - Customizable timeframe selection (hours/days/weeks)
+  - Real-time summary generation
+  - Error handling and loading states
+  - Clean modal interface
 
 ## State Management Patterns
 

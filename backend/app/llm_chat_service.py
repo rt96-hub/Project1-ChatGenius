@@ -2,6 +2,8 @@ import os
 from pinecone import Pinecone
 from openai import OpenAI
 
+from .models import Message
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,7 +17,7 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
 
 
-def ai_response(prompt: str, channel_id: int=None, user_id: int=None):
+def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
     try:
         # Get embeddings for the prompt
         response = openai_client.embeddings.create(
@@ -61,6 +63,28 @@ def ai_response(prompt: str, channel_id: int=None, user_id: int=None):
         return "The AI is currently experiencing technical difficulties. Please try again later.", []
 
 
+def summarize_messages(messages: list[Message]):
+    try:
+        context = ""
+        for message in messages:
+            context += f"User: {message.user.name}\nMessage: {message.content}\n\n"
+
+        prompt = "Summarize the following messages. Identify any important tasks, events, or topics. Create a bulleted list of your summary:"
+        
+        completion = openai_client.chat.completions.create(
+            model="gpt-4o-mini-2024-07-18", # Using GPT-4 since 4o mini not available
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that summarizes messages. Keep things concise and to the point."},
+                {"role": "user", "content": f"{prompt}\n{context}"}
+            ],
+            temperature=0.7,
+            max_tokens=200
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return "The AI is currently experiencing technical difficulties. Please try again later."\
+
 if __name__ == "__main__":
-    print(ai_response("Status report", channel_id=9))
+    print(ai_query_response("Status report", channel_id=9))
+    
 

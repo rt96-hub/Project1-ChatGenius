@@ -313,3 +313,9 @@ class AIQueryResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class ChannelSummaryResponse(BaseModel):
+    summary: str
+
+    class Config:
+        orm_mode = True

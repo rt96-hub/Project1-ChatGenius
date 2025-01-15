@@ -4,7 +4,7 @@ from typing import List, Optional
 import logging
 
 from .. import models, schemas
-from ..llm_chat_service import ai_response
+from ..llm_chat_service import ai_query_response
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def create_conversation(
     db.flush()
     
     # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
-    ai_response_message, search_results_list = ai_response(prompt=initial_message, channel_id=channel_id)
+    ai_response_message, search_results_list = ai_query_response(prompt=initial_message, channel_id=channel_id)
     ai_message = create_ai_message(
         db=db,
         conversation_id=conversation.id,
@@ -124,7 +124,7 @@ def add_message_to_conversation(
     )
 
     # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
-    ai_response_message, search_results_list = ai_response(prompt=message, channel_id=channel_id)
+    ai_response_message, search_results_list = ai_query_response(prompt=message, channel_id=channel_id)
     ai_message = create_ai_message(
         db=db,
         conversation_id=conversation_id,

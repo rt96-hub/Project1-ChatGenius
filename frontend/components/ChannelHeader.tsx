@@ -4,10 +4,12 @@ import {
     HashtagIcon,
     UsersIcon,
     Cog6ToothIcon,
-    SparklesIcon
+    SparklesIcon,
+    DocumentTextIcon
 } from '@heroicons/react/24/outline';
 //import { useApi } from '@/hooks/useApi';
 import ChannelSettingsModal from './ChannelSettingsModal';
+import ChannelSummarizeModal from './ChannelSummarizeModal';
 import type { Channel, ChannelRole } from '../types/channel';
 
 interface ChannelHeaderProps {
@@ -36,6 +38,7 @@ export default function ChannelHeader({
     showAISidebar
 }: ChannelHeaderProps) {
     const [showSettings, setShowSettings] = useState(false);
+    const [showSummarize, setShowSummarize] = useState(false);
     const isOwner = channel.owner_id === currentUserId;
 
     return (
@@ -62,6 +65,13 @@ export default function ChannelHeader({
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowSummarize(true)}
+                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                            title="Summarize Channel"
+                        >
+                            <DocumentTextIcon className="h-5 w-5" />
+                        </button>
                         <button
                             onClick={() => onToggleAISidebar()}
                             className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
@@ -94,6 +104,12 @@ export default function ChannelHeader({
                 onUpdateMemberRole={onUpdateMemberRole}
                 onRemoveMember={onRemoveMember}
                 onDeleteChannel={onChannelDelete || (() => {})}
+            />
+
+            <ChannelSummarizeModal
+                isOpen={showSummarize}
+                onClose={() => setShowSummarize(false)}
+                channelId={channel.id}
             />
         </>
     );

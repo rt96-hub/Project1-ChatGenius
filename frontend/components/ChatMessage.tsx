@@ -306,10 +306,24 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
               {user.name}
             </span>
             <span className="text-xs text-gray-500 flex-none">
-              {new Date(message.created_at).toLocaleTimeString()}
+              {new Date(message.created_at).toLocaleDateString('en-US', {
+                month: '2-digit',
+                day: '2-digit',
+                year: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              })}
               {message.edited_at && message.edited_at !== message.created_at && (
                 <span className="ml-1 italic">
-                  (edited {new Date(message.edited_at).toLocaleTimeString()})
+                  (edited {new Date(message.edited_at).toLocaleDateString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                  })})
                 </span>
               )}
             </span>
