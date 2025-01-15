@@ -246,7 +246,9 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
       setReplyError(null);
       try {
         const response = await api.get(`/messages/${message.id}/reply-chain`);
-        setReplies(response.data);
+        // Filter out the root message immediately when receiving the response
+        const replyChain = response.data.filter((m: Message) => m.id !== message.id);
+        setReplies(replyChain);
       } catch (error) {
         console.error('Failed to fetch reply chain:', error);
         setReplyError('Failed to load replies. Please try again.');
