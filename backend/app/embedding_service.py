@@ -70,6 +70,8 @@ class EmbeddingService:
     def create_message_embedding(
         self,
         message_content: str,
+        channel_name: str,
+        user_name: str,
         message_id: int,
         user_id: int,
         channel_id: int,
@@ -80,12 +82,17 @@ class EmbeddingService:
         # Generate a unique UUID for the vector
         vector_id = str(uuid.uuid4())
         
+        embedded_message = f"Channel: {channel_name} - User: {user_name} - Message: {message_content}"
+
         # Generate the embedding
-        embedding = self.generate_embedding(message_content)
+        embedding = self.generate_embedding(embedded_message)
         
         # Prepare metadata
         metadata = {
             "message_id": message_id,
+            "embedded_content": embedded_message,
+            "user_name": user_name,
+            "channel_name": channel_name,
             "content": message_content,
             "user_id": user_id,
             "channel_id": channel_id,
@@ -104,6 +111,8 @@ class EmbeddingService:
         self,
         vector_id: str,
         new_content: str,
+        channel_name: str,
+        user_name: str,
         message_id: int,
         has_file: bool,
         file_name: Optional[str] = None,
@@ -111,10 +120,15 @@ class EmbeddingService:
     ) -> bool:
         """Update existing message embedding"""
         # Generate new embedding for updated content
-        new_embedding = self.generate_embedding(new_content)
+        new_embedded_message = f"Channel: {channel_name} - User: {user_name} - Message: {new_content}"
+
+        new_embedding = self.generate_embedding(new_embedded_message)
         
         # Update metadata with new content
         metadata = {
+            "embedded_content": new_embedded_message,
+            "user_name": user_name,
+            "channel_name": channel_name,
             "content": new_content,
             "has_file": has_file,
             "file_name": file_name if file_name else "",

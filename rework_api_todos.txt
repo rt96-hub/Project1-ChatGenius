@@ -2,8 +2,31 @@ Ensure the main message endpoint is used for both regular messages, replies, and
 move s3 initialization out of routers, let the s3 client be called into files.py and messages.py and search.py if needed, pass client, as well as bucket_name variable
 find reactions endpoints on the frontend and get them to match new put and delete endpoints
 
+do we encode the username with the message? that way if someone searches, what has john been talking about? it can fine messages he sent, as well as messages he was mentioned in, and who said what about him
+    - include the username in the content sent to the ai, but do we update the content metadata as well? need to build a mass upsert function
+respond to the sidebar messages, should it search for more related messages after each message?
 when the user engages in a multi turn conversation with the ai we need to pass in the entire conversation in to an ai response function
-create a version of the ai response that searches the channel and timestamps
 create a version that lets you tag a user and then search for them in the channel
-make it so you can just hit enter to send the ai message
 each channel has a setting for the agent personality
+tweak the summarize messages function to be more concise, and group the messages in fewer bullets, additionally standarize the formatting of the messages
+
+dark mode?
+
+when a user is away or offline, dms will be replied to by the ai
+additionally, user can chat with their own ai in a special channel
+
+summarize thread
+attach file id to vector metadata
+add type: "message"/"file" to metadata
+in embedding_service add function embed_file or something, has cases for file_type: jpg, png, pdf, docx, txt, etc
+store file vectors in pinecone, create a metadata field for file_id and type: "file" file_name: "file_name"
+    - either text or image, we need to send it to OpenAI, have it generate a summary, then encode that summary
+
+DM comes to user, if they are away, the ai will reply to them
+    - (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
+    - the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
+    - but the list of all message from the channels are passed directly to the ai?
+    - embed more messages 
+
+chat with documents?? add a feature to the frontend where a user can select a document?
+ADD the correct parameters to anywhere we use the embedding service for create and upsert!!!!

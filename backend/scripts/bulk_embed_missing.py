@@ -26,9 +26,15 @@ def process_message_batch(db: Session, messages: list[models.Message]):
     """Process a batch of messages to create their embeddings"""
     for message in messages:
         try:
+            # Get channel and user information
+            channel = db.query(models.Channel).filter(models.Channel.id == message.channel_id).first()
+            user = db.query(models.User).filter(models.User.id == message.user_id).first()
+            
             # Generate embedding and get vector_id
             vector_id = embedding_service.create_message_embedding(
                 message_content=message.content,
+                channel_name=channel.name,
+                user_name=user.name,
                 message_id=message.id,
                 user_id=message.user_id,
                 channel_id=message.channel_id,

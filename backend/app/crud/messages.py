@@ -3,7 +3,7 @@ import logging
 from typing import List, Optional, Tuple
 from datetime import datetime
 
-from ..models import Message, User, MessageReaction
+from ..models import Message, User, MessageReaction, Channel
 from .. import schemas
 from ..embedding_service import embedding_service
 
@@ -21,9 +21,15 @@ def create_message(db: Session, channel_id: int, user_id: int, message: schemas.
     db.refresh(db_message)
 
     try:
+        # Get channel and user information
+        channel = db.query(Channel).filter(Channel.id == channel_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
+        
         # Generate embedding and get vector_id
         vector_id = embedding_service.create_message_embedding(
             message_content=db_message.content,
+            channel_name=channel.name,
+            user_name=user.name,
             message_id=db_message.id,
             user_id=user_id,
             channel_id=channel_id,
@@ -60,11 +66,17 @@ def update_message(db: Session, message_id: int, message_update: schemas.Message
         db.refresh(db_message)
 
         # Only update embedding if we have a vector_id
-        if db_message.vector_id:            
+        if db_message.vector_id:
+            # Get channel and user information
+            channel = db.query(Channel).filter(Channel.id == db_message.channel_id).first()
+            user = db.query(User).filter(User.id == db_message.user_id).first()
+            
             # Update the embedding
             embedding_service.update_message_embedding(
                 vector_id=db_message.vector_id,
                 new_content=message_update.content,
+                channel_name=channel.name,
+                user_name=user.name,
                 message_id=message_id,
                 has_file=bool(db_message.files),
                 file_name=db_message.files[0].file_name if db_message.files else None,
@@ -218,9 +230,15 @@ def create_reply(db: Session, parent_id: int, user_id: int, message: schemas.Mes
     db.refresh(db_message)
     
     try:
+        # Get channel and user information
+        channel = db.query(Channel).filter(Channel.id == parent_message.channel_id).first()
+        user = db.query(User).filter(User.id == user_id).first()
+        
         # Generate embedding for the reply
         vector_id = embedding_service.create_message_embedding(
             message_content=db_message.content,
+            channel_name=channel.name,
+            user_name=user.name,
             message_id=db_message.id,
             user_id=user_id,
             channel_id=parent_message.channel_id,
