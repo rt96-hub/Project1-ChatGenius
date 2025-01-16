@@ -418,16 +418,18 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
             </button>
             {isOwner && (
               <>
-                <button
-                  onClick={() => {
-                    setIsEditing(true);
-                    setEditedContent(message.content);
-                  }}
-                  className="p-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50"
-                  title="Edit message"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
+                {!message.from_ai && (
+                  <button
+                    onClick={() => {
+                      setIsEditing(true);
+                      setEditedContent(message.content);
+                    }}
+                    className="p-1 text-gray-500 hover:text-blue-600 hover:bg-gray-50"
+                    title="Edit message"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                )}
                 <button
                   onClick={handleDelete}
                   className="p-1 text-gray-500 hover:text-red-600 hover:bg-gray-50"

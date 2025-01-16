@@ -79,6 +79,7 @@ Broadcast when a new message is created.
     "created_at": "datetime",
     "user_id": "integer",
     "channel_id": "integer",
+    "from_ai": "boolean",
     "user": {
       "id": "integer",
       "email": "string",

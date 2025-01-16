@@ -130,6 +130,7 @@ class EventsManager:
                 "user_id": message.user_id,
                 "channel_id": message.channel_id,
                 "parent_id": message.parent_id,
+                "from_ai": message.from_ai,
                 "user": {
                     "id": user.id,
                     "email": user.email,

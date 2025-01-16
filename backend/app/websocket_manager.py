@@ -126,16 +126,22 @@ class ConnectionManager:
             self.user_channels[user_id].add(channel_id)
 
     async def broadcast_to_channel(self, message: dict, channel_id: int):
-        disconnected_websockets = []
-        for user_id, channels in self.user_channels.items():
-            if channel_id in channels:
-                if user_id in self.user_connections:
-                    for websocket in self.user_connections[user_id]:
-                        try:
-                            await websocket.send_json(message)
-                        except RuntimeError:
-                            disconnected_websockets.append((websocket, user_id))
+        # Create a list of tuples (user_id, websocket) to iterate over
+        connections_to_process = [
+            (user_id, websocket)
+            for user_id, channels in self.user_channels.items()
+            if channel_id in channels
+            for websocket in self.user_connections.get(user_id, [])
+        ]
         
+        disconnected_websockets = []
+        for user_id, websocket in connections_to_process:
+            try:
+                await websocket.send_json(message)
+            except RuntimeError:
+                disconnected_websockets.append((websocket, user_id))
+        
+        # Handle disconnections after the broadcast is complete
         for websocket, user_id in disconnected_websockets:
             self.disconnect(websocket, user_id)
 

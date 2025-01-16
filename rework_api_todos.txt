@@ -39,8 +39,8 @@ need to update dms in the frontend to handle this:
     x also remove the ability to remove a user from a dm
     x update the chatmessage component to handle the from_ai message with a symbol or something
     x when a message is sent in a dm, the backend uses the main message endpoint with logic for dm and user away to generate an ai response
-    - can a user edit their ai response? should we allow that? or allow them to delete it?
-    - when ai message is broadcasted, the chatmessage component should be able to handle the from_ai message with a symbol or something, right now only on relaod
+    x can a user edit their ai response? should we allow that? or allow them to delete it?
+    x when ai message is broadcasted, the chatmessage component should be able to handle the from_ai message with a symbol or something, right now only on relaod
     - when the user sends the message, it should disappear from the chat immediately
     - maybe a loading state for the ai message?
 
@@ -67,6 +67,11 @@ trim down api responses,
     and again in messages/{channel_id}/messages
  - probably more examples
  
+when a user reacts to a message, the icon shows as a ? mark??
+
+ add an @ reference to a user in a regular channel, if they are away, their AI will respond.
+ - probably only has context of the current channel? Privacy issues?
+ - same as dm message, but the available channel is only the current channel
 
 https://docs.pinecone.io/guides/data/understanding-metadata#metadata-query-language
 $in	Matches vectors with metadata values that are in a specified array. Example: {"genre": {"$in": ["comedy", "documentary"]}}	String, number

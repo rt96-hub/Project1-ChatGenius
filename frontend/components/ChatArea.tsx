@@ -7,6 +7,7 @@ import AISidebar from './AISidebar';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useApi } from '@/hooks/useApi';
 import type { Channel, ChannelRole } from '../types/channel';
+import type { Message } from '../types/message';
 import { FileUploadButton } from './file/FileUploadButton';
 import { FilePreview } from './file/FilePreview';
 import { FileUploadProgress } from './file/FileUploadProgress';
@@ -16,52 +17,6 @@ interface ChatAreaProps {
   onChannelUpdate?: () => void;
   onChannelDelete?: () => void;
   onNavigateToDM?: (channelId: number) => void;
-}
-
-interface Message {
-  id: number;
-  content: string;
-  created_at: string;
-  updated_at?: string;
-  user_id: number;
-  channel_id: number;
-  parent_id: number | null;
-  parent?: Message | null;
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-    picture?: string;
-  };
-  reactions?: Array<{
-    id: number;
-    message_id: number;
-    reaction_id: number;
-    user_id: number;
-    created_at: string;
-    code?: string;
-    reaction: {
-      id: number;
-      code: string;
-      is_system: boolean;
-      image_url: string | null;
-    };
-    user: {
-      id: number;
-      email: string;
-      name: string;
-      picture?: string;
-    };
-  }>;
-  files?: Array<{
-    id: number;
-    message_id: number;
-    file_name: string;
-    content_type: string;
-    file_size: number;
-    uploaded_at: string;
-    uploaded_by: number;
-  }>;
 }
 
 export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, onNavigateToDM }: ChatAreaProps) {
@@ -378,11 +333,17 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     if (!messageContent && !selectedFile) {
       return;
     }
+
+    // Store message content in case we need to restore it
+    const storedContent = messageContent;
+    
+    // Clear input immediately
+    setNewMessage('');
   
     try {
       // Prepare form data
       const formData = new FormData();
-      formData.append('content', messageContent);
+      formData.append('content', storedContent);
       if (selectedFile) {
         formData.append('file', selectedFile);
       }
@@ -404,7 +365,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
       }
   
       // Send via API
-      await api.post(endpoint, selectedFile ? formData : { content: messageContent }, {
+      await api.post(endpoint, selectedFile ? formData : { content: storedContent }, {
         ...(selectedFile && {
           onUploadProgress: (progressEvent) => {
             if (progressEvent.total) {
@@ -417,22 +378,16 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
         }),
       });
   
-      // Clear out the form states
-      setNewMessage('');
+      // Clear remaining form states
       setSelectedFile(null);
       setUploadProgress(0);
       setUploadError(null);
       setReplyingTo(null); // Clear reply state after sending
   
-      // Remove the redundant WebSocket broadcast since server handles it
-      // sendMessage({
-      //   type: 'new_message',
-      //   channel_id: channelId,
-      //   message: createdMessage
-      // });
-  
     } catch (error) {
       console.error('Failed to send message:', error);
+      // Restore the message content if sending failed
+      setNewMessage(storedContent);
       setUploadError(selectedFile ? 'Something went wrong while uploading your file.' : 'Failed to send message.');
     }
   };
