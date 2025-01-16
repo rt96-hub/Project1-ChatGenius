@@ -16,6 +16,7 @@ from ..crud.ai import (
 )
 from ..crud.channels import get_channel
 from ..crud.messages import get_channel_messages
+from ..events_manager import events
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ async def get_channel_ai_conversations(
         raise HTTPException(status_code=404, detail="Channel not found")
     if current_user.id not in [u.id for u in channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Update user activity when fetching AI conversations
+    await events.update_user_activity(current_user.id)
 
     conversations = get_channel_conversations(
         db, channel_id, current_user.id, skip=skip, limit=limit

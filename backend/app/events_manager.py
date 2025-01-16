@@ -18,6 +18,26 @@ class EventsManager:
         return manager.user_channels.get(user_id, [])
     
     @staticmethod
+    def get_check_interval() -> int:
+        """Get the check interval for away status"""
+        return manager.CHECK_INTERVAL
+    
+    @staticmethod
+    def is_user_connected(user_id: int) -> bool:
+        """Check if a user is still connected"""
+        return manager.is_user_connected(user_id)
+    
+    @staticmethod
+    async def update_user_activity(user_id: int):
+        """Update the last activity timestamp for a user"""
+        await manager.update_user_activity(user_id)
+    
+    @staticmethod
+    async def check_away_status(user_id: int):
+        """Check if user should be marked as away"""
+        await manager.check_away_status(user_id)
+    
+    @staticmethod
     def add_channel_for_user(user_id: int, channel_id: int):
         """Add a channel to a user's WebSocket connection"""
         manager.add_channel_for_user(user_id, channel_id)

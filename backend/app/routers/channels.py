@@ -45,27 +45,33 @@ async def create_channel_endpoint(
     return db_channel
 
 @router.get("/me", response_model=List[schemas.Channel])
-def read_user_channels(
+async def read_user_channels(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # Update user activity when fetching user's channels
+    await events.update_user_activity(current_user.id)
+    
     channels = get_user_channels(db, user_id=current_user.id, skip=skip, limit=limit)
     return channels
 
 @router.get("/available", response_model=List[schemas.Channel])
-def get_available_channels_endpoint(
+async def get_available_channels_endpoint(
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Get all public channels that the user can join."""
+    # Update user activity when browsing available channels
+    await events.update_user_activity(current_user.id)
+    
     return get_available_channels(db, user_id=current_user.id, skip=skip, limit=limit)
 
 @router.get("/{channel_id}", response_model=schemas.Channel)
-def read_channel(
+async def read_channel(
     channel_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -75,6 +81,10 @@ def read_channel(
         raise HTTPException(status_code=404, detail="Channel not found")
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Update user activity when viewing a channel
+    await events.update_user_activity(current_user.id)
+    
     return db_channel
 
 @router.put("/{channel_id}", response_model=schemas.Channel)
@@ -92,6 +102,9 @@ async def update_channel_endpoint(
     if db_channel.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the channel owner can update the channel")
     
+    # Update user activity when updating a channel
+    await events.update_user_activity(current_user.id)
+    
     updated_channel = update_channel(db=db, channel_id=channel_id, channel_update=channel_update)
     
     # Use events manager instead of direct WebSocket manager
@@ -105,7 +118,7 @@ async def update_channel_endpoint(
     return updated_channel
 
 @router.delete("/{channel_id}", response_model=schemas.Channel)
-def delete_channel_endpoint(
+async def delete_channel_endpoint(
     channel_id: int,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -115,6 +128,10 @@ def delete_channel_endpoint(
         raise HTTPException(status_code=404, detail="Channel not found")
     if db_channel.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the channel owner can delete the channel")
+    
+    # Update user activity when deleting a channel
+    await events.update_user_activity(current_user.id)
+    
     return delete_channel(db=db, channel_id=channel_id)
 
 @router.get("/{channel_id}/members", response_model=List[schemas.UserInChannel])

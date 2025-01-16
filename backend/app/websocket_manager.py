@@ -1,7 +1,18 @@
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Literal
 from fastapi import WebSocket, status
+from datetime import datetime, timedelta
 from . import models
 from . import schemas
+import asyncio
+import logging
+
+# Configure logging
+# logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+# logger.setLevel(logging.DEBUG)
+
+# Define possible user statuses
+UserStatus = Literal["online", "away", "offline"]
 
 class ConnectionManager:
     def __init__(self):
@@ -9,6 +20,13 @@ class ConnectionManager:
         self.user_connections: Dict[int, List[WebSocket]] = {}
         self.user_channels: Dict[int, Set[int]] = {}
         self.total_connections = 0
+        # Add status tracking
+        self.user_statuses: Dict[int, UserStatus] = {}
+        self.last_activity: Dict[int, datetime] = {}
+        # Status timeouts
+        self.AWAY_TIMEOUT = timedelta(seconds=5)  # setting to 30 seconds for testing
+        # self.AWAY_TIMEOUT = timedelta(minutes=5)  # Mark as away after 5 minutes of inactivity
+        self.CHECK_INTERVAL = 5  # Check every 30 seconds
 
     async def connect(self, websocket: WebSocket, user_id: int, channels: list[int], max_connections_per_user: int, max_total_connections: int):
         if self.total_connections >= max_total_connections:
@@ -27,6 +45,13 @@ class ConnectionManager:
         self.user_connections[user_id].append(websocket)
         self.user_channels[user_id] = set(channels)
         self.total_connections += 1
+        
+        # Set initial status
+        self.user_statuses[user_id] = "online"
+        self.last_activity[user_id] = datetime.now()
+        
+        # Broadcast status change
+        await self.broadcast_status_change(user_id, "online")
         return True
 
     def disconnect(self, websocket: WebSocket, user_id: int):
@@ -38,6 +63,63 @@ class ConnectionManager:
                 if not self.user_connections[user_id]:
                     del self.user_connections[user_id]
                     del self.user_channels[user_id]
+                    # Clean up status tracking
+                    if user_id in self.user_statuses:
+                        del self.user_statuses[user_id]
+                    if user_id in self.last_activity:
+                        del self.last_activity[user_id]
+                    # Broadcast offline status
+                    asyncio.create_task(self.broadcast_status_change(user_id, "offline"))
+
+    async def update_user_activity(self, user_id: int):
+        """Update the last activity timestamp for a user"""
+        if user_id in self.user_connections:
+            logger.debug(f"Updating activity for user {user_id}")
+            self.last_activity[user_id] = datetime.now()
+            # If user was away, set them back to online
+            if self.user_statuses.get(user_id) == "away":
+                logger.info(f"Setting user {user_id} back to online")
+                self.user_statuses[user_id] = "online"
+                await self.broadcast_status_change(user_id, "online")
+                logger.info(f"User {user_id} status broadcast complete")
+
+    async def check_away_status(self, user_id: int):
+        """Check if specific user should be marked as away due to inactivity"""
+        if user_id in self.last_activity and user_id in self.user_statuses:
+            current_time = datetime.now()
+            time_since_activity = current_time - self.last_activity[user_id]
+            logger.debug(f"Checking away status for user {user_id}:")
+            logger.debug(f"Time since activity: {time_since_activity}")
+            logger.debug(f"Current status: {self.user_statuses[user_id]}")
+            logger.debug(f"AWAY_TIMEOUT: {self.AWAY_TIMEOUT}")
+            
+            if time_since_activity >= self.AWAY_TIMEOUT and self.user_statuses[user_id] == "online":
+                logger.info(f"Setting user {user_id} to away status")
+                self.user_statuses[user_id] = "away"
+                await self.broadcast_status_change(user_id, "away")
+                logger.info(f"User {user_id} status broadcast complete")
+
+    def is_user_connected(self, user_id: int) -> bool:
+        """Check if a user is still connected"""
+        return user_id in self.user_connections and len(self.user_connections[user_id]) > 0
+
+    def get_user_status(self, user_id: int) -> UserStatus:
+        """Get the current status of a user"""
+        if user_id not in self.user_connections:
+            return "offline"
+        return self.user_statuses.get(user_id, "offline")
+
+    async def broadcast_status_change(self, user_id: int, status: UserStatus):
+        """Broadcast a user's status change to relevant channels"""
+        message = {
+            "type": "user_status_change",
+            "user_id": user_id,
+            "status": status
+        }
+        # Broadcast to all channels the user is in
+        if user_id in self.user_channels:
+            for channel_id in self.user_channels[user_id]:
+                await self.broadcast_to_channel(message, channel_id)
 
     def add_channel_for_user(self, user_id: int, channel_id: int):
         if user_id in self.user_channels:

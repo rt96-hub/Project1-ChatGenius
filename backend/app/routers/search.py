@@ -13,6 +13,7 @@ from ..database import get_db
 from ..auth0 import get_current_user
 from ..crud.channels import get_user_channels
 from ..crud.messages import get_message
+from ..events_manager import events
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -241,6 +242,9 @@ async def search_files(
 ):
     """Search for files by name or associated message content"""
     try:
+        # Update user activity when searching files
+        await events.update_user_activity(current_user.id)
+        
         validate_date_params(from_date, to_date)
         
         # Get user's accessible channels

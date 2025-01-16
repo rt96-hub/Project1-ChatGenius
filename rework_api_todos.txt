@@ -2,8 +2,6 @@ Ensure the main message endpoint is used for both regular messages, replies, and
 move s3 initialization out of routers, let the s3 client be called into files.py and messages.py and search.py if needed, pass client, as well as bucket_name variable
 find reactions endpoints on the frontend and get them to match new put and delete endpoints
 
-do we encode the username with the message? that way if someone searches, what has john been talking about? it can fine messages he sent, as well as messages he was mentioned in, and who said what about him
-    - include the username in the content sent to the ai, but do we update the content metadata as well? need to build a mass upsert function
 respond to the sidebar messages, should it search for more related messages after each message?
 when the user engages in a multi turn conversation with the ai we need to pass in the entire conversation in to an ai response function
 create a version that lets you tag a user and then search for them in the channel
@@ -23,10 +21,43 @@ store file vectors in pinecone, create a metadata field for file_id and type: "f
     - either text or image, we need to send it to OpenAI, have it generate a summary, then encode that summary
 
 DM comes to user, if they are away, the ai will reply to them
+    - add a new bool column to the messages table, called from_ai, default false
     - (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
     - the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
-    - but the list of all message from the channels are passed directly to the ai?
-    - embed more messages 
+    - but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
+    - additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
+    - get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
+
+need to update dms in the frontend to handle this:
+    - in the sidebar, the name of the dm needs to be changed to the name of the other user
+    - dm is not deletable, and we need to make sure the privacy setting tab is removed
+    - also remove the ability to remove a user from a dm
+    - when a message is sent in a dm, the frontend first needs to check if the user is away, using the new endpoint
+    - if the user is away, their message is sent to a different endpoint, or the main message endpoint needs to route to the ai response function
+
+additionally a user can chat with their own ai in a special channel:
+    - have to create a new default channel for the user, called??? need a script to create for existing users
+    - the channel will be marked as ai_channel: true, and have no ability to be deleted, privacy settings, etc
+    - the ai channel will be used to chat with the user's ai, maybe a slight tweak on the /ai/persona/{user_id}, becomes /ai/persona/me?
+    - the prompt for the ai here will be slightly different, maybe more personable or something
+    - and maybe this message endpoint will have access to the sidebar ai chats
+
+
+
+trying to use websockets to check if a user is away, but it's not working:
+    - do I need to fix the frequent reload of the frontend???
 
 chat with documents?? add a feature to the frontend where a user can select a document?
 ADD the correct parameters to anywhere we use the embedding service for create and upsert!!!!
+
+trim down api responses, 
+ - do we need to send all messages when the user logs in? /user/me
+ - do we need to send all messages when we load the channel sidebar? /channels/me
+ - hell even when we get the channel, it calls all messages in /channels/{channel_id}
+    and again in messages/{channel_id}/messages
+ - probably more examples
+ 
+
+https://docs.pinecone.io/guides/data/understanding-metadata#metadata-query-language
+$in	Matches vectors with metadata values that are in a specified array. Example: {"genre": {"$in": ["comedy", "documentary"]}}	String, number
+use above with channel ids (probably the intersection of channels the sender and receiver are in)

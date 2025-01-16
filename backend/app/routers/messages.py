@@ -76,6 +76,9 @@ async def create_message_endpoint(
     if current_user.id not in [user.id for user in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     
+    # Update user activity when sending a message
+    await events.update_user_activity(current_user.id)
+    
     db_message = create_message(
         db=db,
         channel_id=channel_id,
@@ -89,7 +92,7 @@ async def create_message_endpoint(
     return db_message
 
 @router.get("/{channel_id}/messages", response_model=schemas.MessageList)
-def get_channel_messages_endpoint(
+async def get_channel_messages_endpoint(
     channel_id: int,
     skip: int = 0,
     limit: int = 50,
@@ -104,6 +107,9 @@ def get_channel_messages_endpoint(
         raise HTTPException(status_code=404, detail="Channel not found")
     if not user_in_channel(db, current_user.id, channel_id):
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Update user activity when fetching messages
+    await events.update_user_activity(current_user.id)
     
     return get_channel_messages(
         db=db,
@@ -131,6 +137,9 @@ async def update_message_endpoint(
     if db_message.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the message author can edit the message")
     
+    # Update user activity when editing a message
+    await events.update_user_activity(current_user.id)
+    
     # Update the message
     updated_message = update_message(db=db, message_id=message_id, message_update=message)
     
@@ -154,6 +163,9 @@ async def delete_message_endpoint(
         raise HTTPException(status_code=400, detail="Message does not belong to this channel")
     if db_message.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Only the message author can delete the message")
+    
+    # Update user activity when deleting a message
+    await events.update_user_activity(current_user.id)
     
     # Delete the message
     deleted_message = delete_message(db=db, message_id=message_id)
@@ -180,6 +192,9 @@ async def create_message_reply_endpoint(
         raise HTTPException(status_code=404, detail="Channel not found")
     if not user_in_channel(db, current_user.id, channel_id):
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Update user activity when replying to a message
+    await events.update_user_activity(current_user.id)
     
     # Verify parent message exists and belongs to this channel
     parent_message = get_message(db, message_id=parent_id)
@@ -229,6 +244,9 @@ async def get_message_reply_chain_endpoint(
     if not user_in_channel(db, current_user.id, message.channel_id):
         raise HTTPException(status_code=403, detail="Not a member of the channel containing this message")
     
+    # Update user activity when fetching reply chain
+    await events.update_user_activity(current_user.id)
+    
     # Get the reply chain
     reply_chain = get_message_reply_chain(db, message_id=message_id)
     
@@ -253,6 +271,9 @@ async def create_message_with_file(
         raise HTTPException(status_code=404, detail="Channel not found")
     if current_user.id not in [u.id for u in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+    
+    # Update user activity when sending a message with file
+    await events.update_user_activity(current_user.id)
     
     # If there's no text content and no file, cannot create an empty message
     if (not content or not content.strip()) and not file:
@@ -370,6 +391,9 @@ async def create_reply_message_with_file(
         raise HTTPException(status_code=404, detail="Channel not found")
     if current_user.id not in [u.id for u in db_channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Update user activity when replying with file
+    await events.update_user_activity(current_user.id)
 
     # Check parent message
     parent_msg = get_message(db, message_id=parent_id)
