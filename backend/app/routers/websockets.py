@@ -80,8 +80,13 @@ async def websocket_endpoint(
                 try:
                     data = await websocket.receive_json()
                     logger.info(f"Received message from user {user_id}: {data}")
+                except WebSocketDisconnect:
+                    logger.info(f"WebSocket disconnect detected for user {user_id}")
+                    raise  # Re-raise to be caught by outer try-except
                 except Exception as e:
                     logger.error(f"Error receiving message from user {user_id}: {str(e)}")
+                    if "disconnect message has been received" in str(e):
+                        raise WebSocketDisconnect()
                     continue
 
                 # Update user activity timestamp
