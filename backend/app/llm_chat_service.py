@@ -24,7 +24,7 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
 
 
-def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[int] = [], num_results: int = 5):
+def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[int] = [], num_results: int = 5, trigger_message_id: int = None):
     """
     Retrieves vector search results from Pinecone based on prompt embedding.
     
@@ -33,6 +33,7 @@ def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[
         user_id (int, optional): User ID to filter results by. Defaults to None.
         channel_ids (list[int], optional): Channel IDs to filter results by. Defaults to empty list.
         num_results (int, optional): Number of results to return. Defaults to 5.
+        trigger_message_id (int, optional): Message ID to exclude from results. Defaults to None.
         
     Returns:
         dict: Pinecone query results
@@ -51,6 +52,9 @@ def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[
             filter_dict["user_id"] = user_id
         if channel_ids:
             filter_dict["channel_id"] = {"$in": channel_ids}
+        if trigger_message_id is not None:
+            filter_dict["message_id"] = {"$ne": trigger_message_id}
+
 
         # Search Pinecone index
         search_results = index.query(
@@ -133,7 +137,7 @@ def summarize_messages(messages: list[Message]):
     except Exception as e:
         return "The AI is currently experiencing technical difficulties. Please try again later."
     
-def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: int, channel_id: int):
+def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: int, channel_id: int, trigger_message_id: int):
     """This function takes a prompt and returns a response from the AI for DMs.
     It uses RAG to search for relevant messages from channels both users share."""
     try:
@@ -142,7 +146,7 @@ def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: i
         common_channels_list = [channel.id for channel in common_channels]
 
         # Use retrieve_vector_results to get search results
-        search_results = retrieve_vector_results(prompt, channel_ids=common_channels_list)
+        search_results = retrieve_vector_results(prompt, channel_ids=common_channels_list, trigger_message_id=trigger_message_id)
         if not search_results:
             return "The AI is currently experiencing technical difficulties. Please try again later.", []
 

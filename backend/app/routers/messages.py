@@ -99,7 +99,7 @@ async def create_message_endpoint(
             user_status = manager.get_user_status(other_user.id)
             if user_status != "online":
                 # Generate AI response
-                ai_response = dm_persona_response(db, message.content, current_user.id, other_user.id, channel_id)
+                ai_response = dm_persona_response(db, message.content, current_user.id, other_user.id, channel_id, db_message.id)
 
                 # Create the AI response message as if it's from the receiver
                 ai_message_create = schemas.MessageCreate(content=ai_response)
