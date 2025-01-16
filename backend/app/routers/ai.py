@@ -15,7 +15,7 @@ from ..crud.ai import (
     add_message_to_conversation
 )
 from ..crud.channels import get_channel
-from ..crud.messages import get_channel_messages
+from ..crud.messages import get_channel_messages, create_message
 from ..events_manager import events
 
 logger = logging.getLogger(__name__)
@@ -179,3 +179,57 @@ async def summarize_channel(
     summary = summarize_messages(messages)
     
     return schemas.ChannelSummaryResponse(summary=summary)
+
+@router.post("/ai/persona/{receiver_id}", response_model=List[schemas.Message])
+async def create_ai_persona_message(
+    receiver_id: int,
+    message: schemas.MessageCreate,
+    channel_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a message from the sender and an AI-generated response that appears to be from the receiver"""
+    # Verify channel exists and sender has access
+    db_channel = get_channel(db, channel_id=channel_id)
+    if db_channel is None:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Verify receiver exists and is in the channel
+    if receiver_id not in [user.id for user in db_channel.users]:
+        raise HTTPException(status_code=404, detail="Receiver not found in channel")
+
+    # Update user activity
+    await events.update_user_activity(current_user.id)
+
+    # Create the sender's message
+    sender_message = create_message(
+        db=db,
+        channel_id=channel_id,
+        user_id=current_user.id,
+        message=message
+    )
+
+    # Broadcast the sender's message
+    await events.broadcast_message_created(channel_id, sender_message, current_user)
+
+    # TODO: Generate AI response based on the input message
+    # ai_response = generate_ai_response(message.content, receiver_id, current_user.id)
+    # For now, use a generic response
+    ai_response = "This response message is from an AI!"
+
+    # Create the AI response message as if it's from the receiver
+    ai_db_message = create_message(
+        db=db,
+        channel_id=channel_id,
+        user_id=receiver_id,  # Use receiver's ID as the message author
+        message=ai_response,
+        from_ai=True
+    )
+
+    # Broadcast the AI response message
+    await events.broadcast_message_created(channel_id, ai_db_message, receiver_id)
+    
+    # Return both messages in order
+    return [sender_message, ai_db_message]

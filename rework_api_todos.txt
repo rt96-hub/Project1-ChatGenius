@@ -21,12 +21,15 @@ store file vectors in pinecone, create a metadata field for file_id and type: "f
     - either text or image, we need to send it to OpenAI, have it generate a summary, then encode that summary
 
 DM comes to user, if they are away, the ai will reply to them
-    - add a new bool column to the messages table, called from_ai, default false
-    - (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
+    x determine if user is away via endpoint /users/{user_id}/connection-status
+    x add a new bool column to the messages table, called from_ai, default false
+    fe (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
+    x if the user is away from above, the message is sent to /ai/persona/{user_id} with the request containing the senders_id
     - the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
     - but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
     - additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
-    - get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
+    x get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
+    - tweak the ai to have the users tone and style
 
 need to update dms in the frontend to handle this:
     - in the sidebar, the name of the dm needs to be changed to the name of the other user
@@ -44,8 +47,9 @@ additionally a user can chat with their own ai in a special channel:
 
 
 
-trying to use websockets to check if a user is away, but it's not working:
-    - do I need to fix the frequent reload of the frontend???
+ability to delete conversation from the ai sidebar
+ability to continue a conversation from the ai sidebar
+
 
 chat with documents?? add a feature to the frontend where a user can select a document?
 ADD the correct parameters to anywhere we use the embedding service for create and upsert!!!!

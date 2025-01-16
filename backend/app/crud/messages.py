@@ -9,16 +9,20 @@ from ..embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
-def create_message(db: Session, channel_id: int, user_id: int, message: schemas.MessageCreate):
+def create_message(db: Session, channel_id: int, user_id: int, message: schemas.MessageCreate, from_ai: bool=False):
     """Create a new message and generate its embedding"""
     db_message = Message(
         content=message.content,
         channel_id=channel_id,
-        user_id=user_id
+        user_id=user_id,
+        from_ai=from_ai
     )
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
+
+    if from_ai:
+        return db_message
 
     try:
         # Get channel and user information

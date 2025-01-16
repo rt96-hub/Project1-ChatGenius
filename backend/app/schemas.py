@@ -106,6 +106,7 @@ class Message(MessageBase):
     channel_id: int
     parent_id: Optional[int] = None
     has_replies: bool = False
+    from_ai: bool = False
     user: UserInChannel
     reactions: List[MessageReaction] = []
     parent: Optional['Message'] = None

@@ -58,6 +58,7 @@ class Message(Base):
     channel_id = Column(Integer, ForeignKey("channels.id"))
     parent_id = Column(Integer, ForeignKey("messages.id"), unique=True, nullable=True)
     vector_id = Column(String(36), unique=True, index=True, nullable=True)
+    from_ai = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="messages")
     channel = relationship("Channel", back_populates="messages")

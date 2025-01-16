@@ -185,6 +185,53 @@ Get a summary of channel messages for a specified time period.
 - 403: Not a member of this channel
 - 500: Internal server error
 
+### POST /ai/persona/{receiver_id}
+Create a message from the sender and generate an AI response that appears to be from the specified receiver.
+
+#### Request
+- Headers:
+  - `Authorization`: Bearer token (required)
+- Path Parameters:
+  - `receiver_id`: integer - ID of the user to impersonate in the AI response
+- Query Parameters:
+  - `channel_id`: integer - ID of the channel to post messages in
+- Body:
+  ```json
+  {
+    "content": "string"
+  }
+  ```
+
+#### Response
+- Status: 200 OK
+- Body:
+  ```json
+  [
+    {
+      "id": "string",
+      "content": "string",
+      "userId": "integer",
+      "channelId": "integer",
+      "createdAt": "datetime",
+      "updatedAt": "datetime"
+    },
+    {
+      "id": "string",
+      "content": "string",
+      "userId": "integer", // This will be the receiver_id
+      "channelId": "integer",
+      "createdAt": "datetime",
+      "updatedAt": "datetime",
+      "fromAi": true
+    }
+  ]
+  ```
+
+#### Error Responses
+- 404: Channel or receiver not found
+- 403: Not a member of this channel
+- 500: Internal server error
+
 ## Access Control
 - All endpoints require authentication via Bearer token
 - Users can only access conversations they created
