@@ -201,10 +201,14 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
                                 >
                                     <ChatBubbleLeftRightIcon className="h-4 w-4 flex-none" />
                                     <span className="truncate">
-                                        {channel.users
-                                            .filter(user => user.id !== currentUserId)
-                                            .map(user => user.name)
-                                            .join(', ')}
+                                        {(() => {
+                                            const currentUserEmail = user?.email;
+                                            const otherUser = channel.users.find(u => 
+                                                (currentUserId && u.id !== currentUserId) || 
+                                                (currentUserEmail && u.email !== currentUserEmail)
+                                            );
+                                            return otherUser?.name || 'Unknown User';
+                                        })()}
                                     </span>
                                 </button>
                             </li>

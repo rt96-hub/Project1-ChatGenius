@@ -28,14 +28,15 @@ DM comes to user, if they are away, the ai will reply to them
     - the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
     - but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
     - additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
+    - generate an ai response, put that in the endpoint below
     x get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
     - tweak the ai to have the users tone and style
 
 need to update dms in the frontend to handle this:
-    - in the sidebar, the name of the dm needs to be changed to the name of the other user
+    x in the sidebar, the name of the dm needs to be changed to the name of the other user
+    x dm is not deletable, and we need to make sure the privacy setting tab is removed
+    x also remove the ability to remove a user from a dm
     - update the chatmessage component to handle the from_ai message with a symbol or something
-    - dm is not deletable, and we need to make sure the privacy setting tab is removed
-    - also remove the ability to remove a user from a dm
     - when a message is sent in a dm, the frontend first needs to check if the user is away, using the new endpoint
     - if the user is away, their message is sent to a different endpoint, or the main message endpoint needs to route to the ai response function
 
