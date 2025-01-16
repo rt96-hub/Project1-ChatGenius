@@ -67,9 +67,9 @@ async def add_reaction(
     db_reaction = get_reaction(db, reaction_id=reaction.reaction_id)
     
     # Broadcast the reaction addition
-    await events.broadcast_reaction_add(message.channel_id, message_id, message_reaction, db_reaction, current_user.id)
+    await events.broadcast_reaction_add(message.channel_id, message_id, message_reaction, db_reaction, current_user)
     
-    return db_reaction
+    return message_reaction
 
 # want to switch this endpoint to /reactions/{message_id}/{reaction_id}
 @router.delete("/{message_id}/{reaction_id}", response_model=dict)
