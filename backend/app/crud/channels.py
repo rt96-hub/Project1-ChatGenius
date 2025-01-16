@@ -232,3 +232,12 @@ def get_existing_dm_channel(db: Session, user1_id: int, user2_id: int) -> int:
     )
     
     return dm_channel[0] if dm_channel else None 
+
+def get_common_channels(db: Session, user1_id: int, user2_id: int):
+    """Get all channels that both users are members of."""
+    return (db.query(models.Channel.id)
+            .join(models.UserChannel, models.Channel.id == models.UserChannel.channel_id)
+            .filter(models.UserChannel.user_id.in_([user1_id, user2_id]))
+            .group_by(models.Channel.id)
+            .having(func.count(models.UserChannel.user_id) == 2)
+            .all())

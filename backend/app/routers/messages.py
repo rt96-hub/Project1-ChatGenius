@@ -25,7 +25,7 @@ from ..crud.messages import (
 )
 from ..crud.channels import get_channel, user_in_channel
 from ..websocket_manager import manager
-# from ..llm_chat_service import dm_persona_response
+from ..llm_chat_service import dm_persona_response
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -99,7 +99,7 @@ async def create_message_endpoint(
             user_status = manager.get_user_status(other_user.id)
             if user_status != "online":
                 # Generate AI response
-                ai_response = "This response message is from an AI!"
+                ai_response = dm_persona_response(db, message.content, current_user.id, other_user.id, channel_id)
 
                 # Create the AI response message as if it's from the receiver
                 ai_message_create = schemas.MessageCreate(content=ai_response)

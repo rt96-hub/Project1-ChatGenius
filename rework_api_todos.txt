@@ -23,30 +23,34 @@ store file vectors in pinecone, create a metadata field for file_id and type: "f
 DM comes to user, if they are away, the ai will reply to them
     x determine if user is away via endpoint /users/{user_id}/connection-status
     x add a new bool column to the messages table, called from_ai, default false
-    fe (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
+    NOPE (how does the system know which endpoint to use?) Do we need to make the frontend recognize if the user is away? (get /users/{user_id}/status, returns away, online, offline, (custom no ai respone status?), depending on the status, the message is routed to the appropriate endpoint?)
     x if the user is away from above, the message is sent to /ai/persona/{user_id} with the request containing the senders_id
-    - the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
-    - but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
-    - additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
-    - generate an ai response, put that in the endpoint below
+    x the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
+    x but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
+NEXT- additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
+    x generate an ai response, put that in the endpoint below
     x get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
-    - tweak the ai to have the users tone and style
+    - tweak the ai to have the users tone and style (this may be difficult, we have to get a bunch of messages the receiver has sent in the app and use that as context or something? but could be too much context)
 
 need to update dms in the frontend to handle this:
     x in the sidebar, the name of the dm needs to be changed to the name of the other user
     x dm is not deletable, and we need to make sure the privacy setting tab is removed
     x also remove the ability to remove a user from a dm
-    - update the chatmessage component to handle the from_ai message with a symbol or something
+    x update the chatmessage component to handle the from_ai message with a symbol or something
     x when a message is sent in a dm, the backend uses the main message endpoint with logic for dm and user away to generate an ai response
+    - can a user edit their ai response? should we allow that? or allow them to delete it?
+    - when ai message is broadcasted, the chatmessage component should be able to handle the from_ai message with a symbol or something, right now only on relaod
+    - when the user sends the message, it should disappear from the chat immediately
+    - maybe a loading state for the ai message?
 
 additionally a user can chat with their own ai in a special channel:
     - have to create a new default channel for the user, called??? need a script to create for existing users
-    - the channel will be marked as ai_channel: true, and have no ability to be deleted, privacy settings, etc
-    - the ai channel will be used to chat with the user's ai, maybe a slight tweak on the /ai/persona/{user_id}, becomes /ai/persona/me?
+    - the channel will be marked as ai_channel: true, and have no ability to be deleted, privacy settings, etc (basically the same as a dm)
+    - the ai channel will be used to chat with the user's ai, maybe a slight tweak on the /ai/persona/{user_id}, becomes /ai/persona/me? honestly just keep the same message endpoint logic from dms
     - the prompt for the ai here will be slightly different, maybe more personable or something
     - and maybe this message endpoint will have access to the sidebar ai chats
 
-
+increase the number of messages that are grabbed from the rag search?? more than 5?
 
 ability to delete conversation from the ai sidebar
 ability to continue a conversation from the ai sidebar

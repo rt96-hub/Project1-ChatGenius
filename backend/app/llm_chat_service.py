@@ -1,8 +1,10 @@
 import os
 from pinecone import Pinecone
 from openai import OpenAI
+from sqlalchemy.orm import Session
 
 from .models import Message
+from .crud.channels import get_common_channels
 
 from dotenv import load_dotenv
 
@@ -19,7 +21,7 @@ index = pc.Index(INDEX_NAME)
 
 def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
     """This function takes a prompt and returns a response from the AI.
-    It uses RAG to search for relevante message. It can be filtered by channel or user."""
+    It uses RAG to search for relevant messages. It can be filtered by channel or user."""
     try:
         # Get embeddings for the prompt
         response = openai_client.embeddings.create(
@@ -94,6 +96,64 @@ def summarize_messages(messages: list[Message]):
     except Exception as e:
         return "The AI is currently experiencing technical difficulties. Please try again later."
     
+def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: int, channel_id: int):
+    """This function takes a prompt and returns a response from the AI for DMs.
+    It uses RAG to search for relevant messages from channels both users share."""
+    try:
+        # get common channels between sender and receiver
+        common_channels = get_common_channels(db, sender_id, receiver_id)
+        common_channels_list = []
+        for channel in common_channels:
+            common_channels_list.append(channel.id)
+
+        # Get embeddings for the prompt
+        response = openai_client.embeddings.create(
+            input=prompt,
+            model="text-embedding-3-small"
+        )
+        query_embedding = response.data[0].embedding
+
+        # Search Pinecone index with channel filter
+        search_results = index.query(
+            vector=query_embedding,
+            top_k=5,
+            include_metadata=True,
+            filter={
+                "channel_id": {"$in": common_channels_list},  # For now just using the current channel, can expand to shared channels
+            }
+        )
+        # Build context from search results
+        context = ""
+        search_results_list = []
+        for match in search_results['matches']:
+            search_results_list.append(match['metadata'])
+            if 'content' in match['metadata']:
+                user = match['metadata']['user_name']
+                content = match['metadata']['content']
+                context += f"{user} said: {content}\n"
+
+        # System prompt for DM persona
+        system_prompt = """You are a helpful AI assistant in a direct message conversation. 
+        Use the provided context about the users' previous messages to inform your response.
+        Keep responses friendly and conversational while staying relevant to the topic."""
+        
+        # TODO later add in the prior messages from the dm channel into the message history get from crud channels get_channel_messages
+        # Generate response
+        completion = openai_client.chat.completions.create(
+            model="gpt-4o-mini-2024-07-18",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Context:\n{context}\n\nPrompt: {prompt}"}
+            ],
+            temperature=0.7,
+            max_tokens=200
+        )
+
+        return completion.choices[0].message.content
+
+    except Exception as e:
+        return f"The AI is currently experiencing technical difficulties: {str(e)}", []
+
 def prompt_message_set(prompt: str, messages: list[Message]):
     try:
         return "The AI is currently experiencing technical difficulties. Please try again later."
