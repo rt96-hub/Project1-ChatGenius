@@ -33,6 +33,7 @@ DM comes to user, if they are away, the ai will reply to them
 
 need to update dms in the frontend to handle this:
     - in the sidebar, the name of the dm needs to be changed to the name of the other user
+    - update the chatmessage component to handle the from_ai message with a symbol or something
     - dm is not deletable, and we need to make sure the privacy setting tab is removed
     - also remove the ability to remove a user from a dm
     - when a message is sent in a dm, the frontend first needs to check if the user is away, using the new endpoint

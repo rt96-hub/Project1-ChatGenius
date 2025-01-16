@@ -57,15 +57,17 @@ async def add_reaction(
     if current_user.id not in [u.id for u in channel.users]:
         raise HTTPException(status_code=403, detail="Not a member of this channel")
     
-    db_reaction = add_reaction_to_message(
+    message_reaction = add_reaction_to_message(
         db=db,
         message_id=message_id,
         user_id=current_user.id,
         reaction_id=reaction.reaction_id
     )
+
+    db_reaction = get_reaction(db, reaction_id=reaction.reaction_id)
     
     # Broadcast the reaction addition
-    await events.broadcast_reaction_add(message.channel_id, db_reaction)
+    await events.broadcast_reaction_add(message.channel_id, message_id, message_reaction, db_reaction, current_user.id)
     
     return db_reaction
 
