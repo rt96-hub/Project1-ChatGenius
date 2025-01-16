@@ -231,6 +231,38 @@ Get list of user's DM channels.
 - Status: 200 OK
 - Body: Array of Channel objects
 
+### GET /channels/me/ai-dm
+Get or create an AI DM channel for the current user. This is a special channel for interacting with the AI assistant.
+
+#### Request
+- Headers:
+  - `Authorization`: Bearer token (required)
+
+#### Response
+- Status: 200 OK
+- Body: Channel object with properties:
+  ```json
+  {
+    "id": "integer",
+    "name": "string",  // Format: "{username}-ai-dm"
+    "description": "string",
+    "owner_id": "integer",
+    "is_private": true,
+    "is_dm": true,
+    "ai_channel": true,
+    "created_at": "datetime"
+  }
+  ```
+
+#### Error Response
+- Status: 404 Not Found
+  - Body:
+    ```json
+    {
+      "detail": "Could not create AI DM channel"
+    }
+    ```
+
 ## WebSocket Events
 
 The channel router broadcasts several events through WebSocket connections:

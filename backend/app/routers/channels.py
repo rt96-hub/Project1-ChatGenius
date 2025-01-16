@@ -22,7 +22,8 @@ from ..crud.channels import (
     user_in_channel,
     create_dm,
     get_user_dms,
-    get_existing_dm_channel
+    get_existing_dm_channel,
+    get_or_create_ai_dm
 )
 from ..crud.users import get_user
 
@@ -296,3 +297,17 @@ def check_existing_dm_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error checking DM channel: {str(e)}"
         ) 
+
+@router.get("/me/ai-dm", response_model=schemas.Channel)
+async def get_or_create_ai_dm_endpoint(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Get or create an AI DM channel for the current user."""
+    db_channel = get_or_create_ai_dm(db=db, user_id=current_user.id)
+    if not db_channel:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Could not create AI DM channel"
+        )
+    return db_channel 

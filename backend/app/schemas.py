@@ -125,6 +125,7 @@ class ChannelBase(BaseModel):
     description: Optional[str] = None
     is_private: Optional[bool] = False
     is_dm: Optional[bool] = False
+    ai_channel: Optional[bool] = False
 
 class ChannelCreate(ChannelBase):
     pass

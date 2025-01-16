@@ -47,6 +47,7 @@ export default function ChatArea({ channelId, onChannelUpdate, onChannelDelete, 
     if (!channelId) return;
     try {
       const response = await api.get(`/channels/${channelId}`);
+      console.log('Channel details:', response.data);
       setChannel(response.data);
     } catch (error) {
       console.error('Failed to fetch channel details:', error);

@@ -48,7 +48,9 @@ export default function ChannelHeader({
                 <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
-                            {channel.is_dm ? (
+                            {channel.ai_channel ? (
+                                <SparklesIcon className="h-5 w-5 text-gray-400" />
+                            ) : channel.is_dm && !channel.ai_channel ? (
                                 <ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-400" />
                             ) : channel.is_private ? (
                                 <LockClosedIcon className="h-5 w-5 text-gray-400" />
@@ -56,13 +58,15 @@ export default function ChannelHeader({
                                 <HashtagIcon className="h-5 w-5 text-gray-400" />
                             )}
                             <h2 className="text-xl font-semibold text-gray-900">
-                                {channel.is_dm 
-                                    ? channel.users.find(u => u.id !== currentUserId)?.name || 'Unknown User'
-                                    : channel.name
+                                {channel.ai_channel 
+                                    ? `${channel.users.find(u => u.id === currentUserId)?.name?.split(' ')[0]}'s AI`
+                                    : channel.is_dm && !channel.ai_channel
+                                        ? channel.users.find(u => u.id !== currentUserId)?.name || 'Unknown User'
+                                        : channel.name
                                 }
                             </h2>
                         </div>
-                        {!channel.is_dm && (
+                        {!channel.is_dm && !channel.ai_channel && (
                             <button
                                 onClick={() => onToggleMembers()}
                                 className="flex items-center gap-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md px-2 py-1"
@@ -75,21 +79,25 @@ export default function ChannelHeader({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowSummarize(true)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                            title="Summarize Channel"
-                        >
-                            <DocumentTextIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                            onClick={() => onToggleAISidebar()}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                            title={showAISidebar ? "Hide AI Assistant" : "Show AI Assistant"}
-                        >
-                            <SparklesIcon className="h-5 w-5" />
-                        </button>
-                        {isOwner && !channel.is_dm && (
+                        {!channel.ai_channel && (
+                            <button
+                                onClick={() => setShowSummarize(true)}
+                                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                                title="Summarize Channel"
+                            >
+                                <DocumentTextIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                        {!channel.ai_channel && (
+                            <button
+                                onClick={() => onToggleAISidebar()}
+                                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                                title={showAISidebar ? "Hide AI Assistant" : "Show AI Assistant"}
+                            >
+                                <SparklesIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                        {isOwner && !channel.is_dm && !channel.ai_channel && (
                             <button
                                 onClick={() => setShowSettings(true)}
                                 className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"

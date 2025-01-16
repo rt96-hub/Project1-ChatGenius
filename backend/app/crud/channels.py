@@ -201,6 +201,7 @@ def get_user_dms(db: Session, user_id: int, skip: int = 0, limit: int = 100):
              .join(models.UserChannel)
              .filter(models.UserChannel.user_id == user_id)
              .filter(models.Channel.is_dm == True)
+             .filter(models.Channel.ai_channel == False)  # Exclude AI channels
              .options(joinedload(models.Channel.users))
              .outerjoin(latest_messages, models.Channel.id == latest_messages.c.channel_id)
              .order_by(latest_messages.c.latest_message_at.desc().nullslast())
@@ -241,3 +242,41 @@ def get_common_channels(db: Session, user1_id: int, user2_id: int):
             .group_by(models.Channel.id)
             .having(func.count(models.UserChannel.user_id) == 2)
             .all())
+
+def get_or_create_ai_dm(db: Session, user_id: int) -> models.Channel:
+    """Get or create an AI DM channel for a user."""
+    user = get_user(db, user_id)
+    if not user:
+        return None
+        
+    channel_name = f"{user.name}-ai-dm".lower().replace(" ", "-")
+    
+    # Check if channel already exists
+    existing_channel = (db.query(models.Channel)
+                       .filter(models.Channel.name == channel_name)
+                       .filter(models.Channel.is_dm == True)
+                       .first())
+    
+    if existing_channel:
+        return existing_channel
+        
+    # Create new AI DM channel
+    db_channel = models.Channel(
+        name=channel_name,
+        description=f"AI Assistant for {user.name}",
+        owner_id=user_id,
+        is_private=True,
+        is_dm=True,
+        ai_channel=True
+    )
+    db.add(db_channel)
+    db.commit()
+    db.refresh(db_channel)
+    
+    # Add user to the channel
+    db_user_channel = models.UserChannel(user_id=user_id, channel_id=db_channel.id)
+    db.add(db_user_channel)
+    db.commit()
+    db.refresh(db_channel)
+    
+    return db_channel

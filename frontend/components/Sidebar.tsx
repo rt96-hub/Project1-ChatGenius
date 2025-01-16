@@ -5,7 +5,8 @@ import {
     LockClosedIcon,
     ChatBubbleLeftRightIcon,
     ListBulletIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    SparklesIcon
 } from '@heroicons/react/24/outline';
 import { useApi } from '@/hooks/useApi';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +27,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
     const { user } = useAuth();
     const [channels, setChannels] = useState<Channel[]>([]);
     const [dmChannels, setDmChannels] = useState<Channel[]>([]);
+    const [aiChannel, setAiChannel] = useState<Channel | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isViewDMsModalOpen, setIsViewDMsModalOpen] = useState(false);
     const [isNewDMModalOpen, setIsNewDMModalOpen] = useState(false);
@@ -53,13 +55,25 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         }
     }, [api]);
 
+    const fetchAiChannel = useCallback(async () => {
+        try {
+            const response = await api.get('/channels/me/ai-dm');
+            setAiChannel(response.data);
+        } catch (error) {
+            console.error('Failed to fetch AI channel:', error);
+        }
+    }, [api]);
+
     useEffect(() => {
         fetchChannels();
         fetchDmChannels();
+        fetchAiChannel();
         
         const removeListener = addMessageListener((data) => {
             if (data.type === 'channel_update') {
-                if (data.channel.is_dm) {
+                if (data.channel.ai_channel) {
+                    setAiChannel(data.channel);
+                } else if (data.channel.is_dm) {
                     setDmChannels(prevDms => 
                         prevDms.map(dm => 
                             dm.id === data.channel.id 
@@ -89,7 +103,7 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
         return () => {
             removeListener();
         };
-    }, [refreshTrigger, addMessageListener, fetchChannels, fetchDmChannels]);
+    }, [refreshTrigger, addMessageListener, fetchChannels, fetchDmChannels, fetchAiChannel]);
 
     const handleChannelSelect = (channelId: number) => {
         setSelectedChannelId(channelId);
@@ -128,7 +142,22 @@ export default function Sidebar({ onChannelSelect, refreshTrigger }: SidebarProp
             </div>
             
             <div className="flex-1 overflow-y-auto">
-                <div className="px-4 mb-6 mt-4">
+                {aiChannel && (
+                    <div className="px-4 mb-6 mt-4">
+                        <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wide mb-2">AI Assistant</h3>
+                        <button
+                            onClick={() => handleChannelSelect(aiChannel.id)}
+                            className={`flex items-center gap-2 w-full px-2 py-1.5 rounded transition-colors ${
+                                selectedChannelId === aiChannel.id ? 'bg-gray-700' : 'hover:bg-gray-700'
+                            }`}
+                        >
+                            <SparklesIcon className="h-4 w-4 flex-none" />
+                            <span className="truncate">AI Assistant</span>
+                        </button>
+                    </div>
+                )}
+
+                <div className="px-4 mb-6">
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wide">Channels</h3>
                         <div className="flex gap-1">

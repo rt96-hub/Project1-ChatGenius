@@ -13,6 +13,7 @@ export interface Channel {
     description?: string;
     is_private: boolean;
     is_dm: boolean;
+    ai_channel?: boolean;
     created_at: string;
     owner_id: number;
     users: ChannelMember[];
