@@ -37,8 +37,7 @@ need to update dms in the frontend to handle this:
     x dm is not deletable, and we need to make sure the privacy setting tab is removed
     x also remove the ability to remove a user from a dm
     - update the chatmessage component to handle the from_ai message with a symbol or something
-    - when a message is sent in a dm, the frontend first needs to check if the user is away, using the new endpoint
-    - if the user is away, their message is sent to a different endpoint, or the main message endpoint needs to route to the ai response function
+    x when a message is sent in a dm, the backend uses the main message endpoint with logic for dm and user away to generate an ai response
 
 additionally a user can chat with their own ai in a special channel:
     - have to create a new default channel for the user, called??? need a script to create for existing users

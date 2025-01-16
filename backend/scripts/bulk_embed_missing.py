@@ -19,6 +19,7 @@ def get_messages_without_vectors(db: Session, batch_size: int = 100):
     """Get all messages that don't have vector IDs"""
     return (db.query(models.Message)
             .filter(models.Message.vector_id.is_(None))
+            .filter(models.Message.from_ai.is_(False))
             .limit(batch_size)
             .all())
 

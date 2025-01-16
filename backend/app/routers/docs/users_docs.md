@@ -117,6 +117,27 @@ Update the current user's name.
 - Status: 200 OK
 - Body: Updated User object
 
+### GET /users/{user_id}/connection-status
+Get a specific user's connection status.
+
+#### Request
+- Headers:
+  - `Authorization`: Bearer token (required)
+- Path Parameters:
+  - `user_id`: integer
+
+#### Response
+- Status: 200 OK
+- Body (UserStatus enum):
+  ```json
+  "ONLINE" | "AWAY" | "OFFLINE"
+  ```
+
+#### Error Responses
+- 401 Unauthorized: Missing or invalid token
+- 404 Not Found: User not found
+- 500 Internal Server Error: Server-side error
+
 ## Error Responses
 - 400 Bad Request: Invalid request data
 - 401 Unauthorized: Missing or invalid token

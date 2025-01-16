@@ -40,6 +40,7 @@ interface Message {
   parent_id: number | null;
   parent?: Message | null;
   has_replies?: boolean;
+  from_ai?: boolean;
   user?: User;
   reactions?: Reaction[];
   files?: Array<{
@@ -305,6 +306,11 @@ export default function ChatMessage({ message, currentUserId, channelId, onMessa
             <span className="font-medium truncate">
               {user.name}
             </span>
+            {message.from_ai && (
+              <span className="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                AI
+              </span>
+            )}
             <span className="text-xs text-gray-500 flex-none">
               {new Date(message.created_at).toLocaleDateString('en-US', {
                 month: '2-digit',

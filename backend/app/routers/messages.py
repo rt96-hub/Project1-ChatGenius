@@ -24,6 +24,8 @@ from ..crud.messages import (
     get_message_reply_chain
 )
 from ..crud.channels import get_channel, user_in_channel
+from ..websocket_manager import manager
+# from ..llm_chat_service import dm_persona_response
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -79,6 +81,7 @@ async def create_message_endpoint(
     # Update user activity when sending a message
     await events.update_user_activity(current_user.id)
     
+    # Create normal message if not DM or other user is online
     db_message = create_message(
         db=db,
         channel_id=channel_id,
@@ -88,6 +91,29 @@ async def create_message_endpoint(
 
     # Broadcast the new message to all users in the channel
     await events.broadcast_message_created(channel_id, db_message, current_user)
+
+    # If this is a DM channel, check the other user's status
+    if db_channel.is_dm:
+        other_user = next((user for user in db_channel.users if user.id != current_user.id), None)
+        if other_user:
+            user_status = manager.get_user_status(other_user.id)
+            if user_status != "online":
+                # Generate AI response
+                ai_response = "This response message is from an AI!"
+
+                # Create the AI response message as if it's from the receiver
+                ai_message_create = schemas.MessageCreate(content=ai_response)
+                ai_db_message = create_message(
+                    db=db,
+                    channel_id=channel_id,
+                    user_id=other_user.id,  # Use receiver's ID as the message author
+                    message=ai_message_create,
+                    from_ai=True
+                )
+                
+                # Broadcast both the original message and AI response
+                await events.broadcast_message_created(channel_id, ai_db_message, other_user)
+                return db_message
     
     return db_message
 
