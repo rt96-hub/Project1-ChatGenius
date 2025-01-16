@@ -27,7 +27,8 @@ DM comes to user, if they are away, the ai will reply to them
     x if the user is away from above, the message is sent to /ai/persona/{user_id} with the request containing the senders_id
     x the channels available to the user are passed in to pinecone, or do we need to encode the channel name along with the username in the message?
     x but the list of all message from the channels are passed directly to the ai? no the channels are used to filter the rag search
-NEXT- additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
+    x additionally, grab the last X messages within the last Y days from the dm chat itself, construct the messages list in OpenAI chat completion with those
+??? - along with above, do we need to pass in all the context from the prior messages? in that case we need to store it somewhere, but that may be too much context
     x generate an ai response, put that in the endpoint below
     x get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
     - tweak the ai to have the users tone and style (this may be difficult, we have to get a bunch of messages the receiver has sent in the app and use that as context or something? but could be too much context)

@@ -1,10 +1,15 @@
 import os
+import logging
 from pinecone import Pinecone
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
 from .models import Message
 from .crud.channels import get_common_channels
+from .crud.messages import get_channel_messages
+
 
 from dotenv import load_dotenv
 
@@ -19,9 +24,19 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(INDEX_NAME)
 
 
-def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
-    """This function takes a prompt and returns a response from the AI.
-    It uses RAG to search for relevant messages. It can be filtered by channel or user."""
+def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[int] = [], num_results: int = 5):
+    """
+    Retrieves vector search results from Pinecone based on prompt embedding.
+    
+    Args:
+        prompt (str): The text prompt to search with
+        user_id (int, optional): User ID to filter results by. Defaults to None.
+        channel_ids (list[int], optional): Channel IDs to filter results by. Defaults to empty list.
+        num_results (int, optional): Number of results to return. Defaults to 5.
+        
+    Returns:
+        dict: Pinecone query results
+    """
     try:
         # Get embeddings for the prompt
         response = openai_client.embeddings.create(
@@ -29,18 +44,41 @@ def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
             model="text-embedding-3-small"
         )
         query_embedding = response.data[0].embedding
+
+        # Build filter dict
+        filter_dict = {}
+        if user_id is not None:
+            filter_dict["user_id"] = user_id
+        if channel_ids:
+            filter_dict["channel_id"] = {"$in": channel_ids}
+
         # Search Pinecone index
         search_results = index.query(
             vector=query_embedding,
-            top_k=5,  # Retrieve top 5 most similar results
+            top_k=num_results,
             include_metadata=True,
-            filter={k: v for k, v in {
-                "channel_id": channel_id,
-                "user_id": user_id
-            }.items() if v is not None}
+            filter=filter_dict if filter_dict else None
         )
 
-        # save the search results to a variable to pass back to the frontend (right now we are just passing it to the backend)
+        return search_results
+
+    except Exception as e:
+        logger.error(f"Error retrieving vector results: {e}")
+        return None
+
+
+
+def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
+    """This function takes a prompt and returns a response from the AI.
+    It uses RAG to search for relevant messages. It can be filtered by channel or user."""
+    try:
+        # Use retrieve_vector_results to get search results
+        channel_ids = [channel_id] if channel_id else []
+        search_results = retrieve_vector_results(prompt, user_id, channel_ids)
+        if not search_results:
+            return "The AI is currently experiencing technical difficulties. Please try again later.", []
+
+        # save the search results to a variable to pass back to the frontend
         search_results_list = []
         for match in search_results['matches']:
             search_results_list.append(match['metadata'])
@@ -66,7 +104,6 @@ def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
         )
 
         return completion.choices[0].message.content, search_results_list
-
 
     except Exception as e:
         return "The AI is currently experiencing technical difficulties. Please try again later.", []
@@ -102,26 +139,13 @@ def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: i
     try:
         # get common channels between sender and receiver
         common_channels = get_common_channels(db, sender_id, receiver_id)
-        common_channels_list = []
-        for channel in common_channels:
-            common_channels_list.append(channel.id)
+        common_channels_list = [channel.id for channel in common_channels]
 
-        # Get embeddings for the prompt
-        response = openai_client.embeddings.create(
-            input=prompt,
-            model="text-embedding-3-small"
-        )
-        query_embedding = response.data[0].embedding
+        # Use retrieve_vector_results to get search results
+        search_results = retrieve_vector_results(prompt, channel_ids=common_channels_list)
+        if not search_results:
+            return "The AI is currently experiencing technical difficulties. Please try again later.", []
 
-        # Search Pinecone index with channel filter
-        search_results = index.query(
-            vector=query_embedding,
-            top_k=5,
-            include_metadata=True,
-            filter={
-                "channel_id": {"$in": common_channels_list},  # For now just using the current channel, can expand to shared channels
-            }
-        )
         # Build context from search results
         context = ""
         search_results_list = []
@@ -130,21 +154,35 @@ def dm_persona_response(db: Session, prompt: str, sender_id: int, receiver_id: i
             if 'content' in match['metadata']:
                 user = match['metadata']['user_name']
                 content = match['metadata']['content']
-                context += f"{user} said: {content}\n"
+                channel = match['metadata']['channel_name']
+                context += f"In the {channel} channel, {user} said: {content}\n"
 
+        # Get the last 10 messages from the current DM channel
+        recent_messages = get_channel_messages(db, channel_id, skip=0, limit=10, include_reactions=False, parent_only=True)
+        
+        # Add recent messages to context
+        message_history = []
+        for message in reversed(recent_messages.messages):  # Reverse to show in chronological order
+            if message.user.id == sender_id:
+                message_history.append({"role": "user", "content": message.content})
+            else:
+                message_history.append({"role": "assistant", "content": message.content})
+    
         # System prompt for DM persona
         system_prompt = """You are a helpful AI assistant in a direct message conversation. 
         Use the provided context about the users' previous messages to inform your response.
         Keep responses friendly and conversational while staying relevant to the topic."""
         
-        # TODO later add in the prior messages from the dm channel into the message history get from crud channels get_channel_messages
         # Generate response
+        messages = [
+            {"role": "system", "content": system_prompt},
+        ]
+        messages.extend(message_history)  # Add the message history between system and final user message
+        messages.append({"role": "user", "content": f"Context:\n{context}\n\nPrompt: {prompt}"})
+        
         completion = openai_client.chat.completions.create(
             model="gpt-4o-mini-2024-07-18",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Context:\n{context}\n\nPrompt: {prompt}"}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=200
         )
