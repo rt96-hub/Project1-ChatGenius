@@ -4,7 +4,7 @@ from typing import List, Optional
 import logging
 
 from .. import models, schemas
-from ..llm_chat_service import ai_query_response
+from ..ai_service import ai_query_response
 
 logger = logging.getLogger(__name__)
 
@@ -75,19 +75,24 @@ def create_conversation(
         message=initial_message
     )
     db.add(user_message)
-    db.flush()
+    db.commit()  # Commit immediately to get accurate timestamp
     
-    # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
+    # Get AI response after user message is committed
     ai_response_message, search_results_list = ai_query_response(prompt=initial_message, channel_id=channel_id)
-    ai_message = create_ai_message(
-        db=db,
+    
+    # Create AI message with its own timestamp
+    ai_message = models.AIMessage(
         conversation_id=conversation.id,
         channel_id=channel_id,
         user_id=user_id,
-        message=ai_response_message,
-        role='assistant'
+        role='assistant',
+        message=ai_response_message
     )
-
+    db.add(ai_message)
+    
+    # Update conversation last_message timestamp
+    conversation.last_message = ai_message.created_at
+    
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -129,15 +134,16 @@ def add_message_to_conversation(
     message: str
 ) -> models.AIConversation:
     """Add a new message to an existing conversation"""
-    # Add user message
-    user_message = create_ai_message(
-        db=db,
+    # Add user message and commit immediately
+    user_message = models.AIMessage(
         conversation_id=conversation_id,
         channel_id=channel_id,
         user_id=user_id,
         message=message,
         role='user'
     )
+    db.add(user_message)
+    db.commit()
 
     # Get conversation history
     chat_history = []
@@ -159,15 +165,21 @@ def add_message_to_conversation(
         chat_history=chat_history
     )
     
-    ai_message = create_ai_message(
-        db=db,
+    # Create AI message with its own timestamp
+    ai_message = models.AIMessage(
         conversation_id=conversation_id,
         channel_id=channel_id,
         user_id=user_id,
         message=ai_response_message,
         role='assistant'
     )
-
+    db.add(ai_message)
+    
+    # Update conversation last_message timestamp
     conversation = get_conversation(db, conversation_id, user_id)
-    return conversation 
+    if conversation:
+        conversation.last_message = ai_message.created_at
+    
+    db.commit()
+    return conversation
 

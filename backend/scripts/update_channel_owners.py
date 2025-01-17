@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from database import SessionLocal
+from app.database import SessionLocal
 import backend.app.models as models
 
 def update_channel_owners():

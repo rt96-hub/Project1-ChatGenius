@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from .. import models, schemas
 from ..database import get_db
 from ..auth0 import get_current_user
-from ..llm_chat_service import summarize_messages
+from ..ai_service import summarize_messages
 from ..crud.ai import (
     get_conversation,
     get_channel_conversations,

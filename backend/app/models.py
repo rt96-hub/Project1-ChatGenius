@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 import sqlalchemy as sa
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -15,6 +16,7 @@ class User(Base):
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)
     bio = Column(String, nullable=True)
+    ai_persona_profile = Column(Text, nullable=True)
 
     messages = relationship("Message", back_populates="user")
     channels = relationship("Channel", secondary="user_channels", back_populates="users")
@@ -164,7 +166,7 @@ class AIMessage(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     role = Column(String, nullable=False)  # 'user' or 'ai'
     message = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     parameters = Column(sa.JSON, nullable=True)
 
     # Relationships

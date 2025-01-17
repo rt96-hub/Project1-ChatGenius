@@ -3,6 +3,8 @@ from fastapi import WebSocket, status
 from datetime import datetime, timedelta
 from . import models
 from . import schemas
+from .database import SessionLocal
+from .ai_service import generate_user_persona_profile
 import asyncio
 import logging
 
@@ -70,6 +72,20 @@ class ConnectionManager:
                         del self.last_activity[user_id]
                     # Broadcast offline status
                     asyncio.create_task(self.broadcast_status_change(user_id, "offline"))
+                    # Generate user profile in background
+                    asyncio.create_task(self._generate_profile_on_disconnect(user_id))
+
+    async def _generate_profile_on_disconnect(self, user_id: int):
+        """Generate user profile in background after disconnect"""
+        try:
+            
+            db = SessionLocal()
+            try:
+                await asyncio.to_thread(generate_user_persona_profile, db, user_id)
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"Error generating profile for user {user_id}: {e}")
 
     async def update_user_activity(self, user_id: int):
         """Update the last activity timestamp for a user"""

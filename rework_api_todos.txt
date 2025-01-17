@@ -31,7 +31,7 @@ DM comes to user, if they are away, the ai will reply to them
     x generate an ai response, put that in the endpoint below
     x get the message response from the ai, then send it as a message to the dm, tagged as from_ai: true
     x filter to remove the most recent message from the vectors returned by the search
-    - tweak the ai to have the users tone and style (this may be difficult, we have to get a bunch of messages the receiver has sent in the app and use that as context or something? but could be too much context)
+    x tweak the ai to have the users tone and style (this may be difficult, we have to get a bunch of messages the receiver has sent in the app and use that as context or something? but could be too much context)
 
 need to update dms in the frontend to handle this:
     x in the sidebar, the name of the dm needs to be changed to the name of the other user
@@ -65,11 +65,13 @@ ai sidebar enhancements:
 
 
 ai persona talk like the user features
-    - add a "user_profile_prompt" column to the users table, this will be a string that will be used to generate the ai persona
-    - when the user disconnects, we need to send a request to openai to generate instructions for future ai responses to sound like the user
-    - something like "Please give a short description of the way this user talks, how long are the words they use, do they use punctuation, are they verbose, long messages, short messages... Please create a short instruction set that would provide an LLM the manner in which they should reply to mimic this user's style of typing."
-    - anytime the user persona is called, we need to pass that instruction to the system prompt or something 
-
+    x add a "user_profile_prompt" column to the users table, this will be a string that will be used to generate the ai persona
+    x when the user disconnects, we need to send a request to openai to generate instructions for future ai responses to sound like the user
+    x something like "Please give a short description of the way this user talks, how long are the words they use, do they use punctuation, are they verbose, long messages, short messages... Please create a short instruction set that would provide an LLM the manner in which they should reply to mimic this user's style of typing."
+    x add a lookup in the dm_persona_response function to get this prompt
+    x anytime the user persona is called, we need to pass that instruction to the system prompt or something 
+    - when a user messages their own ai, they seem to think they are talking to a different person, refer to looking at messages that "Robert" sent, not messages "You" sent
+    x build a script that can be run to generate the user_profile_prompt for all users
 
 RESEARCH:
     - context better before or after the message chain?
@@ -80,7 +82,7 @@ summarize a thread
 
 
 tweak prompts across the app
-increase the number of messages that are grabbed from the rag search?? more than 5?
+ x increase the number of messages that are grabbed from the rag search?? more than 5? set to 10 now
 
 
 chat with documents?? add a feature to the frontend where a user can select a document?
