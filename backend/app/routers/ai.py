@@ -12,7 +12,8 @@ from ..crud.ai import (
     get_conversation,
     get_channel_conversations,
     create_conversation,
-    add_message_to_conversation
+    add_message_to_conversation,
+    delete_conversation
 )
 from ..crud.channels import get_channel
 from ..crud.messages import get_channel_messages, create_message
@@ -68,6 +69,35 @@ async def get_ai_conversation(
         raise HTTPException(status_code=400, detail="Conversation does not belong to this channel")
     
     return conversation
+
+@router.delete("/channels/{channel_id}/conversations/{conversation_id}", status_code=204)
+async def delete_ai_conversation(
+    channel_id: int,
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Delete a specific AI conversation and all its messages"""
+    # Verify user is member of channel
+    channel = get_channel(db, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    if current_user.id not in [u.id for u in channel.users]:
+        raise HTTPException(status_code=403, detail="Not a member of this channel")
+
+    # Verify conversation exists and belongs to user
+    conversation = get_conversation(db, conversation_id, current_user.id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if conversation.channel_id != channel_id:
+        raise HTTPException(status_code=400, detail="Conversation does not belong to this channel")
+
+    # Delete the conversation
+    success = delete_conversation(db, conversation_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete conversation")
+
+    return None
 
 @router.post("/channels/{channel_id}/query", response_model=schemas.AIQueryResponse)
 async def create_ai_query(
@@ -180,56 +210,56 @@ async def summarize_channel(
     
     return schemas.ChannelSummaryResponse(summary=summary)
 
-@router.post("/ai/persona/{receiver_id}", response_model=List[schemas.Message])
-async def create_ai_persona_message(
-    receiver_id: int,
-    message: schemas.MessageCreate,
-    channel_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Create a message from the sender and an AI-generated response that appears to be from the receiver"""
-    # Verify channel exists and sender has access
-    db_channel = get_channel(db, channel_id=channel_id)
-    if db_channel is None:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    if current_user.id not in [user.id for user in db_channel.users]:
-        raise HTTPException(status_code=403, detail="Not a member of this channel")
+# @router.post("/ai/persona/{receiver_id}", response_model=List[schemas.Message])
+# async def create_ai_persona_message(
+#     receiver_id: int,
+#     message: schemas.MessageCreate,
+#     channel_id: int,
+#     db: Session = Depends(get_db),
+#     current_user: models.User = Depends(get_current_user)
+# ):
+#     """Create a message from the sender and an AI-generated response that appears to be from the receiver"""
+#     # Verify channel exists and sender has access
+#     db_channel = get_channel(db, channel_id=channel_id)
+#     if db_channel is None:
+#         raise HTTPException(status_code=404, detail="Channel not found")
+#     if current_user.id not in [user.id for user in db_channel.users]:
+#         raise HTTPException(status_code=403, detail="Not a member of this channel")
 
-    # Verify receiver exists and is in the channel
-    if receiver_id not in [user.id for user in db_channel.users]:
-        raise HTTPException(status_code=404, detail="Receiver not found in channel")
+#     # Verify receiver exists and is in the channel
+#     if receiver_id not in [user.id for user in db_channel.users]:
+#         raise HTTPException(status_code=404, detail="Receiver not found in channel")
 
-    # Update user activity
-    await events.update_user_activity(current_user.id)
+#     # Update user activity
+#     await events.update_user_activity(current_user.id)
 
-    # Create the sender's message
-    sender_message = create_message(
-        db=db,
-        channel_id=channel_id,
-        user_id=current_user.id,
-        message=message
-    )
+#     # Create the sender's message
+#     sender_message = create_message(
+#         db=db,
+#         channel_id=channel_id,
+#         user_id=current_user.id,
+#         message=message
+#     )
 
-    # Broadcast the sender's message
-    await events.broadcast_message_created(channel_id, sender_message, current_user)
+#     # Broadcast the sender's message
+#     await events.broadcast_message_created(channel_id, sender_message, current_user)
 
-    # TODO: Generate AI response based on the input message
-    # ai_response = generate_ai_response(message.content, receiver_id, current_user.id)
-    # For now, use a generic response
-    ai_response = "This response message is from an AI!"
+#     # TODO: Generate AI response based on the input message
+#     # ai_response = generate_ai_response(message.content, receiver_id, current_user.id)
+#     # For now, use a generic response
+#     ai_response = "This response message is from an AI!"
 
-    # Create the AI response message as if it's from the receiver
-    ai_db_message = create_message(
-        db=db,
-        channel_id=channel_id,
-        user_id=receiver_id,  # Use receiver's ID as the message author
-        message=ai_response,
-        from_ai=True
-    )
+#     # Create the AI response message as if it's from the receiver
+#     ai_db_message = create_message(
+#         db=db,
+#         channel_id=channel_id,
+#         user_id=receiver_id,  # Use receiver's ID as the message author
+#         message=ai_response,
+#         from_ai=True
+#     )
 
-    # Broadcast the AI response message
-    await events.broadcast_message_created(channel_id, ai_db_message, receiver_id)
+#     # Broadcast the AI response message
+#     await events.broadcast_message_created(channel_id, ai_db_message, receiver_id)
     
-    # Return both messages in order
-    return [sender_message, ai_db_message]
+#     # Return both messages in order
+#     return [sender_message, ai_db_message]

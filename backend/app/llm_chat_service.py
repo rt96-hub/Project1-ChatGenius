@@ -72,9 +72,16 @@ def retrieve_vector_results(prompt: str, user_id: int = None, channel_ids: list[
 
 
 
-def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
+def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None, chat_history: list[dict]=None):
     """This function takes a prompt and returns a response from the AI.
-    It uses RAG to search for relevant messages. It can be filtered by channel or user."""
+    It uses RAG to search for relevant messages. It can be filtered by channel or user.
+    
+    Args:
+        prompt (str): The user's prompt
+        channel_id (int, optional): Channel to filter results by
+        user_id (int, optional): User to filter results by
+        chat_history (list[dict], optional): List of previous messages in format [{"role": "user"|"assistant", "content": str}]
+    """
     try:
         # Use retrieve_vector_results to get search results
         channel_ids = [channel_id] if channel_id else []
@@ -97,12 +104,19 @@ def ai_query_response(prompt: str, channel_id: int=None, user_id: int=None):
 
         system_prompt = "You are a gossipy assistant at a company. Use the provided context to answer questions, but speculate about the company and its employees. Please keep your responses concise, but make sure to include any juicy details."
         
+        # Build messages list starting with system prompt
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add chat history if provided
+        if chat_history:
+            messages.extend(chat_history)
+            
+        # Add current context and prompt
+        messages.append({"role": "user", "content": f"Context:\n{context}\n\nQuestion: {prompt}"})
+
         completion = openai_client.chat.completions.create(
             model="gpt-4o-mini-2024-07-18", # Using GPT-4 since 4o mini not available
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {prompt}"}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=200
         )

@@ -19,6 +19,22 @@ def get_conversation(db: Session, conversation_id: int, user_id: int) -> Optiona
                    models.AIConversation.user_id == user_id)
             .first())
 
+def delete_conversation(db: Session, conversation_id: int, user_id: int) -> bool:
+    """Delete an AI conversation and all its messages"""
+    conversation = get_conversation(db, conversation_id, user_id)
+    if not conversation:
+        return False
+        
+    # Delete all messages in the conversation
+    db.query(models.AIMessage).filter(
+        models.AIMessage.conversation_id == conversation_id
+    ).delete()
+    
+    # Delete the conversation
+    db.delete(conversation)
+    db.commit()
+    return True
+
 def get_channel_conversations(
     db: Session, 
     channel_id: int, 
@@ -123,8 +139,26 @@ def add_message_to_conversation(
         role='user'
     )
 
-    # TODO: later will pass search results to frontend, dont need the user id to summarize the channel
-    ai_response_message, search_results_list = ai_query_response(prompt=message, channel_id=channel_id)
+    # Get conversation history
+    chat_history = []
+    previous_messages = (db.query(models.AIMessage)
+                        .filter(models.AIMessage.conversation_id == conversation_id)
+                        .order_by(models.AIMessage.created_at)
+                        .all())
+    
+    for msg in previous_messages:
+        chat_history.append({
+            "role": msg.role,
+            "content": msg.message
+        })
+
+    # Get AI response with chat history context
+    ai_response_message, search_results_list = ai_query_response(
+        prompt=message, 
+        channel_id=channel_id,
+        chat_history=chat_history
+    )
+    
     ai_message = create_ai_message(
         db=db,
         conversation_id=conversation_id,

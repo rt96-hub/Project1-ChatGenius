@@ -94,26 +94,44 @@ async def create_message_endpoint(
 
     # If this is a DM channel, check the other user's status
     if db_channel.is_dm:
-        other_user = next((user for user in db_channel.users if user.id != current_user.id), None)
-        if other_user:
-            user_status = manager.get_user_status(other_user.id)
-            if user_status != "online":
-                # Generate AI response
-                ai_response = dm_persona_response(db, message.content, current_user.id, other_user.id, channel_id, db_message.id)
+        if db_channel.ai_channel:
+            # Generate AI response with current user as both sender and receiver
+            ai_response = dm_persona_response(db, message.content, current_user.id, current_user.id, channel_id, db_message.id)
 
-                # Create the AI response message as if it's from the receiver
-                ai_message_create = schemas.MessageCreate(content=ai_response)
-                ai_db_message = create_message(
-                    db=db,
-                    channel_id=channel_id,
-                    user_id=other_user.id,  # Use receiver's ID as the message author
-                    message=ai_message_create,
-                    from_ai=True
-                )
-                
-                # Broadcast both the original message and AI response
-                await events.broadcast_message_created(channel_id, ai_db_message, other_user)
-                return db_message
+            # Create the AI response message
+            ai_message_create = schemas.MessageCreate(content=ai_response)
+            ai_db_message = create_message(
+                db=db,
+                channel_id=channel_id,
+                user_id=current_user.id,  # Use current user's ID
+                message=ai_message_create,
+                from_ai=True
+            )
+            
+            # Broadcast both the original message and AI response
+            await events.broadcast_message_created(channel_id, ai_db_message, current_user)
+            return db_message
+        else:
+            other_user = next((user for user in db_channel.users if user.id != current_user.id), None)
+            if other_user:
+                user_status = manager.get_user_status(other_user.id)
+                if user_status != "online":
+                    # Generate AI response
+                    ai_response = dm_persona_response(db, message.content, current_user.id, other_user.id, channel_id, db_message.id)
+
+                    # Create the AI response message as if it's from the receiver
+                    ai_message_create = schemas.MessageCreate(content=ai_response)
+                    ai_db_message = create_message(
+                        db=db,
+                        channel_id=channel_id,
+                        user_id=other_user.id,  # Use receiver's ID as the message author
+                        message=ai_message_create,
+                        from_ai=True
+                    )
+                    
+                    # Broadcast both the original message and AI response
+                    await events.broadcast_message_created(channel_id, ai_db_message, other_user)
+                    return db_message
     
     return db_message
 

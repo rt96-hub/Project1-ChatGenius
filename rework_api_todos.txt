@@ -13,7 +13,6 @@ dark mode?
 when a user is away or offline, dms will be replied to by the ai
 additionally, user can chat with their own ai in a special channel
 
-summarize thread
 attach file id to vector metadata
 add type: "message"/"file" to metadata
 in embedding_service add function embed_file or something, has cases for file_type: jpg, png, pdf, docx, txt, etc
@@ -50,17 +49,38 @@ additionally a user can chat with their own ai in a special channel:
     x have to create a new default channel for the user, called??? this will be created when the user logs in, if it doesnt already exist
     x need an endpoint that searches for the ai channel, and if it doesnt exist, create it, the frontend will call this when loading the sidebar
     x the channel will be marked as a dm, with only the user and their ai. in the backend it will be name-ai-dm, in the frontend, it will be Users AI
-    - when the user sends a message, it will be sent to the same message endpoint as a message, and same with the dm, but the sender_id and receiver_id will be the user_id
-    - may need to check that there is only one user_id in the channel, this happens before the check receiver away logic
-    - the prompt for the ai here will be slightly different, maybe more personable or something
-    - and maybe this message endpoint will have access to the sidebar ai chats
+    x when the user sends a message, it will be sent to the same message endpoint as a message, and same with the dm, but the sender_id and receiver_id will be the user_id
+    x may need to check that there is only one user_id in the channel, this happens before the check receiver away logic(we check if the channel is a dm, then if it is ai, else go to normal dm check)
+    - the prompt for the ai here might be slightly different, maybe more personable or something (we could check if the sender and receiver ids are the same)
+
+ai sidebar enhancements:
+- ability to delete conversation from the ai sidebar
+    x this will use the DELETE /ai/channels/{channel_id}/conversations/{conversation_id} endpoint
+    x i think we need to add this endpoint, might have a crud function already
+- ability to continue a conversation from the ai sidebar
+    x first we have to be able to select the conversation itself, it gets expanded, and a text box added to the bottom, the main ai sidebar text box needs to be collapsed
+    x this will use the POST /ai/channels/{channel_id}/conversations/{conversation_id}/messages endpoint
+    x and will need to include the prior messages in the conversation, in addtion to another rag search (add conversation history to the ai_query_response function)
+
+
+
+ai persona talk like the user features
+    - add a "user_profile_prompt" column to the users table, this will be a string that will be used to generate the ai persona
+    - when the user disconnects, we need to send a request to openai to generate instructions for future ai responses to sound like the user
+    - something like "Please give a short description of the way this user talks, how long are the words they use, do they use punctuation, are they verbose, long messages, short messages... Please create a short instruction set that would provide an LLM the manner in which they should reply to mimic this user's style of typing."
+    - anytime the user persona is called, we need to pass that instruction to the system prompt or something 
+
+
+RESEARCH:
+    - context better before or after the message chain?
+
+summarize a thread
+    - a small button next to the show/hide replies button, when clicked will show text bubble with the summary
+    - maybe include rag here?
 
 
 tweak prompts across the app
 increase the number of messages that are grabbed from the rag search?? more than 5?
-
-ability to delete conversation from the ai sidebar
-ability to continue a conversation from the ai sidebar
 
 
 chat with documents?? add a feature to the frontend where a user can select a document?
